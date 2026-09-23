@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client.js";
 import { useToast } from "../components/Toast.jsx";
 
@@ -21,11 +21,7 @@ function connectNotifications(accessToken, onMessage) {
   };
 
   return () => {
-    try {
-      ws.close();
-    } catch {
-      /* ignore */
-    }
+    try { ws.close(); } catch {}
   };
 }
 
@@ -72,11 +68,7 @@ export function AuthProvider({ children }) {
       const refreshToken = api.storage.getRefresh();
       clearSession();
       if (refreshToken) {
-        try {
-          await api.auth.logout({ refreshToken });
-        } catch {
-          /* ignore */
-        }
+        try { await api.auth.logout({ refreshToken }); } catch {}
       }
     }
 

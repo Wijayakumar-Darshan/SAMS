@@ -1,259 +1,391 @@
-import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import { QrCode, KeyRound, CheckCircle2, Camera, School, GraduationCap, CloudOff } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
 import { api } from "../../api/client.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useI18n } from "../../i18n/i18n.jsx";
-import { Avatar, Skeleton, ErrorState } from "../../components/ui.jsx";
+import { Card, Button } from "../../components/UI/index.jsx";
+import {
+  LinkIcon,
+  QrCodeIcon,
+  CameraIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+  SparklesIcon,
+} from "../../components/UI/Icons.jsx";
+import { BrowserQRCodeReader } from "@zxing/browser";
 
-function parseSamsQr(text) {
-  // Teacher QR is encoded as: SAMS|<school>|<mappingCode>
-  const s = String(text || "").trim();
-  if (s.startsWith("SAMS|")) {
-    const parts = s.split("|");
-    return { school: parts[1] || "", mappingCode: parts[2] || "" };
-  }
-  return { school: "", mappingCode: s };
-}
-
-export default function MapTeacher() {
+export default function StudentMapTeacher() {
   const { t } = useI18n();
   const toast = useToast();
-
   const [blocked, setBlocked] = useState(false);
   const [blockMsg, setBlockMsg] = useState("");
-
   const [mappingCode, setMappingCode] = useState("");
-  const [scannerOn, setScannerOn] = useState(false);
-  const [scanInfo, setScanInfo] = useState({ school: "" });
-  const [linking, setLinking] = useState(false);
-
-  const [teachers, setTeachers] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
+  const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
   const videoRef = useRef(null);
-  const readerRef = useRef(null);
+  const codeReaderRef = useRef(null);
 
-  async function loadTeachers() {
+  async function handleLink(codeToUse) {
+    const code = (codeToUse || mappingCode).trim();
+    if (!code) {
+      toast.show("Please enter your teacher's code", "error");
+      return;
+    }
+
     setLoading(true);
-    setError(false);
+    setSuccessMsg("");
     try {
-      const d = await api.get("/api/student/me/teachers");
-      setTeachers(d);
-    } catch {
-      setError(true);
+      await api.post("/api/student/me/map-teacher", { mappingCode: code });
+      toast.show("🎉 Connected with teacher successfully!");
+      setSuccessMsg("Successfully linked with your school teacher.");
+      setMappingCode("");
+      stopScanning();
+    } catch (err) {
+      const msg = err?.data?.message || err?.message || "Linking failed. Please check the code.";
+      toast.show(msg, "error");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadTeachers();
-  }, []);
-
-  useEffect(() => {
-    readerRef.current = new BrowserMultiFormatReader();
-    return () => {
-      try {
-        readerRef.current?.reset();
-      } catch {
-        /* ignore */
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    let stopped = false;
-
-    async function start() {
-      if (!scannerOn) return;
-      try {
-        const codeReader = readerRef.current;
-        if (!codeReader) return;
-
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-        const deviceId = devices?.[0]?.deviceId;
-
-        await codeReader.decodeFromVideoDevice(deviceId, videoRef.current, (result) => {
-          if (stopped) return;
-          if (result) {
-            const text = result.getText();
-            const parsed = parseSamsQr(text);
-            if (parsed.mappingCode) setMappingCode(parsed.mappingCode);
-            setScanInfo({ school: parsed.school || "" });
-          }
-        });
-      } catch {
-        toast.show("Camera error. Please allow camera permission.", "error");
-      }
-    }
-
-    function stop() {
-      try {
-        readerRef.current?.reset();
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (scannerOn) start();
-    else stop();
-
-    return () => {
-      stopped = true;
-      stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scannerOn]);
-
-  async function link() {
-    setBlocked(false);
-    setBlockMsg("");
-    const code = mappingCode.trim();
-    if (!code) {
-      toast.show("Please enter a mapping code", "error");
-      return;
-    }
-    setLinking(true);
+  // QR Camera scanner
+  async function startScanning() {
+    setScanning(true);
     try {
-      await api.post("/api/student/me/map-teacher", { mappingCode: code });
-      toast.show("Teacher linked successfully", "success");
-      setScannerOn(false);
-      setMappingCode("");
-      await loadTeachers();
-    } catch (err) {
-      if (err?.status === 403 && err?.data?.error === "TRIAL_EXPIRED") {
-        setBlocked(true);
-        setBlockMsg(err.data.message);
-        return;
+      const codeReader = new BrowserQRCodeReader();
+      codeReaderRef.current = codeReader;
+
+      const videoElement = videoRef.current;
+      if (!videoElement) return;
+
+      const result = await codeReader.decodeOnceFromVideoDevice(undefined, videoElement);
+      if (result) {
+        const rawText = result.getText();
+        // format is: SAMS|School|MappingCode or direct mapping code
+        let extractedCode = rawText;
+        if (rawText.includes("|")) {
+          const parts = rawText.split("|");
+          extractedCode = parts[parts.length - 1]; // last part is mappingCode
+        }
+        setMappingCode(extractedCode);
+        toast.show(`QR Code scanned: ${extractedCode}`);
+        stopScanning();
+        handleLink(extractedCode);
       }
-      toast.show(err?.data?.message || "Failed to link teacher", "error");
-    } finally {
-      setLinking(false);
+    } catch {
+      stopScanning();
     }
   }
 
+  function stopScanning() {
+    setScanning(false);
+    if (codeReaderRef.current) {
+      try {
+        const stream = videoRef.current?.srcObject;
+        if (stream) {
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => track.stop());
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      stopScanning();
+    };
+  }, []);
+
   return (
-    <Layout title={t("mapTeacher")}>
+    <Layout
+      title={t("mapTeacher")}
+      subtitle="Connect with your classroom teacher to receive ratings and feedback"
+    >
       <TrialGate blocked={blocked} message={blockMsg}>
-        {loading ? (
-          <Skeleton height={160} radius={16} />
-        ) : error ? (
-          <div className="card">
-            <ErrorState icon={<CloudOff size={22} />} title={t("couldntLoad")} onRetry={loadTeachers} retryLabel={t("tryAgain")} />
-          </div>
-        ) : (
-          <div className="stack" style={{ gap: 20 }}>
-            {teachers && teachers.length > 0 && (
-              <div className="card">
-                <div className="h2">Connected teachers</div>
-                <div className="stack" style={{ gap: 10 }}>
-                  {teachers.map((tt) => (
-                    <div key={tt.teacherId} className="between card card-flat" style={{ background: "var(--success-50)", border: "1px solid var(--success-100)" }}>
-                      <div className="center-v" style={{ gap: 12 }}>
-                        <Avatar name={tt.name} />
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{tt.name}</div>
-                          <div className="center-v" style={{ gap: 8, fontSize: 12.5, color: "var(--text-muted)" }}>
-                            <span className="center-v" style={{ gap: 4 }}>
-                              <School size={12} /> {tt.school}
-                            </span>
-                            {tt.grade && (
-                              <span className="center-v" style={{ gap: 4 }}>
-                                <GraduationCap size={12} /> {tt.grade} {tt.className}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="badge badge-success">
-                        <CheckCircle2 size={12} /> Connected
-                      </span>
-                    </div>
-                  ))}
-                </div>
+        <div className="sams-map-teacher-container">
+          <Card className="sams-map-card">
+            <div className="sams-map-header">
+              <div className="sams-map-icon-box">
+                <LinkIcon size={28} color="white" />
+              </div>
+              <div>
+                <h2 className="sams-map-title">{t("linkTeacher")}</h2>
+                <p className="sams-map-desc">{t("connectTeacherDesc")}</p>
+              </div>
+            </div>
+
+            {successMsg && (
+              <div className="sams-map-success-alert animate-fade-in">
+                <CheckCircleIcon size={20} color="#16A34A" />
+                <span>{successMsg}</span>
               </div>
             )}
 
-            <div className="row" style={{ alignItems: "flex-start" }}>
-              <div className="col card">
-                <div className="h2">{teachers?.length ? "Link another teacher" : t("mapTeacher")}</div>
-                <p className="subtitle mb-3">
-                  Ask your teacher for their mapping code, or scan their QR code — both must belong to the same school.
+            <div className="sams-map-methods-grid">
+              {/* Method 1: Enter Code */}
+              <div className="sams-method-box">
+                <div className="sams-method-tag">Option 1</div>
+                <h3 className="sams-method-title">Enter Teacher Code</h3>
+                <p className="sams-method-desc">
+                  Ask your teacher for their 6-character code (e.g. <code>T123456</code>).
                 </p>
 
-                <div className="field">
-                  <label className="label">
-                    <KeyRound size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
-                    {t("enterMappingCode")}
-                  </label>
-                  <input
-                    className="input"
-                    value={mappingCode}
-                    onChange={(e) => setMappingCode(e.target.value)}
-                    placeholder="e.g. MTH-2024-081"
-                  />
-                </div>
-
-                <button className="btn btn-accent btn-block" type="button" onClick={link} disabled={linking}>
-                  {linking ? "Linking…" : t("linkTeacher")}
-                </button>
-
-                <div className="mt-4">
-                  <button
-                    className={"btn btn-block " + (scannerOn ? "btn-danger" : "btn-outline")}
-                    type="button"
-                    onClick={() => setScannerOn((p) => !p)}
-                  >
-                    <Camera size={16} />
-                    {scannerOn ? "Stop scanning" : t("scanQr")}
-                  </button>
-                </div>
-
-                {scanInfo.school && (
-                  <div className="badge badge-primary mt-3">
-                    <QrCode size={12} /> QR School: {scanInfo.school}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleLink();
+                  }}
+                  className="sams-code-form"
+                >
+                  <div className="sams-field">
+                    <input
+                      type="text"
+                      className="sams-input sams-code-input"
+                      value={mappingCode}
+                      onChange={(e) => setMappingCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. T481902"
+                      required
+                    />
                   </div>
-                )}
 
-                <p className="faint mt-4" style={{ fontSize: 12 }}>
-                  Note: Teacher mapping only works within your own school — this is verified by the server.
-                </p>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    icon={<LinkIcon size={18} />}
+                    className="sams-btn-full"
+                  >
+                    {t("linkTeacher")}
+                  </Button>
+                </form>
               </div>
 
-              <div className="col card">
-                <div className="h2">
-                  <Camera size={15} style={{ marginRight: 6, verticalAlign: -2 }} />
-                  {t("scanQr")}
-                </div>
-                {scannerOn ? (
-                  <video
-                    ref={videoRef}
-                    style={{
-                      width: "100%",
-                      maxWidth: 480,
-                      borderRadius: "var(--radius-lg)",
-                      border: "1px solid var(--border)"
-                    }}
-                  />
+              {/* Method 2: Scan QR Code */}
+              <div className="sams-method-box qr-method">
+                <div className="sams-method-tag">Option 2</div>
+                <h3 className="sams-method-title">Scan Teacher QR</h3>
+                <p className="sams-method-desc">
+                  Point your camera at your teacher's printed or on-screen QR code.
+                </p>
+
+                {scanning ? (
+                  <div className="sams-scanner-box">
+                    <video ref={videoRef} className="sams-scanner-video" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={stopScanning}
+                      className="sams-stop-scanner-btn"
+                    >
+                      Cancel Scanning
+                    </Button>
+                  </div>
                 ) : (
-                  <div className="emptyState">
-                    <div className="icon-wrap">
-                      <QrCode size={22} />
+                  <div className="sams-qr-placeholder">
+                    <div className="sams-qr-icon-circle">
+                      <QrCodeIcon size={44} color="var(--primary)" />
                     </div>
-                    <h3>Scanner is off</h3>
-                    <p>Tap "Scan QR Code" to start your camera and scan a teacher's QR code.</p>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      icon={<CameraIcon size={18} />}
+                      onClick={startScanning}
+                      className="sams-btn-full"
+                    >
+                      {t("scanQr")}
+                    </Button>
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        )}
+
+            {/* School Compatibility Notice */}
+            <div className="sams-school-notice">
+              <AlertCircleIcon size={18} color="var(--accent)" />
+              <div>
+                <strong>Important Note:</strong>
+                <span> You can only link with teachers registered to your exact school.</span>
+              </div>
+            </div>
+          </Card>
+        </div>
       </TrialGate>
+
+      <style>{`
+        .sams-map-teacher-container {
+          max-width: 860px;
+          margin: 0 auto;
+        }
+
+        .sams-map-card {
+          padding: 32px;
+          border: 1px solid var(--border-subtle);
+          box-shadow: var(--shadow-md);
+        }
+
+        .sams-map-header {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding-bottom: 24px;
+          border-bottom: 1px solid var(--border-subtle);
+          margin-bottom: 24px;
+        }
+
+        .sams-map-icon-box {
+          width: 52px;
+          height: 52px;
+          border-radius: var(--radius-lg);
+          background: var(--primary-gradient);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 6px 16px rgba(11, 46, 89, 0.25);
+          flex-shrink: 0;
+        }
+
+        .sams-map-title {
+          font-size: 20px;
+          font-weight: 800;
+          color: var(--text-main);
+          letter-spacing: -0.02em;
+        }
+
+        .sams-map-desc {
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+        }
+
+        .sams-map-success-alert {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: #DCFCE7;
+          border: 1px solid #86EFAC;
+          color: #15803D;
+          padding: 12px 16px;
+          border-radius: var(--radius-md);
+          font-weight: 600;
+          font-size: 14px;
+          margin-bottom: 20px;
+        }
+
+        .sams-map-methods-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .sams-method-box {
+          background: var(--bg-card-muted);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xl);
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .sams-method-tag {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+          color: var(--accent);
+          margin-bottom: 6px;
+        }
+
+        .sams-method-title {
+          font-size: 16px;
+          font-weight: 800;
+          color: var(--text-main);
+          margin-bottom: 6px;
+        }
+
+        .sams-method-desc {
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-bottom: 20px;
+          line-height: 1.45;
+        }
+
+        .sams-code-input {
+          font-family: var(--font-mono);
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          text-align: center;
+          padding: 12px;
+          text-transform: uppercase;
+        }
+
+        .sams-btn-full {
+          width: 100%;
+        }
+
+        .sams-qr-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          flex: 1;
+        }
+
+        .sams-qr-icon-circle {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          background: #FFFFFF;
+          border: 2px dashed var(--border-strong);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sams-scanner-box {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .sams-scanner-video {
+          width: 100%;
+          max-height: 220px;
+          border-radius: var(--radius-md);
+          background: #000;
+          object-fit: cover;
+        }
+
+        .sams-school-notice {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          background: var(--accent-soft);
+          border: 1px solid rgba(46, 134, 193, 0.25);
+          padding: 14px 18px;
+          border-radius: var(--radius-lg);
+          font-size: 13px;
+          color: var(--primary);
+        }
+
+        @media (max-width: 700px) {
+          .sams-map-methods-grid {
+            grid-template-columns: 1fr;
+          }
+          .sams-map-card {
+            padding: 20px;
+          }
+        }
+      `}</style>
     </Layout>
   );
 }

@@ -20,7 +20,7 @@ const storage = {
 async function rawFetch(url, options = {}) {
   const res = await fetch(url, options);
   const text = await res.text();
-  let data;
+  let data = null;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {

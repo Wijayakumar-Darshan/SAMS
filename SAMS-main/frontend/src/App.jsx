@@ -1,3 +1,4 @@
+import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./state/AuthContext.jsx";
 
@@ -21,6 +22,14 @@ import AdminDashboard from "./pages/admin/Dashboard.jsx";
 import AdminTeachers from "./pages/admin/Teachers.jsx";
 import AdminPayments from "./pages/admin/Payments.jsx";
 
+function roleHome(role) {
+  if (role === "STUDENT") return "/student/dashboard";
+  if (role === "TEACHER") return "/teacher/dashboard";
+  if (role === "PARENT") return "/parent/dashboard";
+  if (role === "ADMIN") return "/admin/dashboard";
+  return "/login";
+}
+
 function RequireRole({ role, children }) {
   const auth = useAuth();
   if (!auth.role) return <Navigate to="/login" replace />;
@@ -33,7 +42,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={auth.role ? "/login" : "/login"} replace />} />
+      <Route path="/" element={<Navigate to={auth.role ? roleHome(auth.role) : "/login"} replace />} />
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
 import { translations } from "./translations.js";
 
 const I18nCtx = createContext(null);

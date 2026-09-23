@@ -1,27 +1,33 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, GraduationCap, School, Wallet, CreditCard, CloudOff } from "lucide-react";
 import Layout from "../../components/Layout.jsx";
 import { api } from "../../api/client.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useI18n } from "../../i18n/i18n.jsx";
-import { StatCard, SkeletonCards, ErrorState } from "../../components/ui.jsx";
+import { Card, StatCard, Button } from "../../components/UI/index.jsx";
+import {
+  ShieldIcon,
+  CreditCardIcon,
+  UsersIcon,
+  RefreshCwIcon,
+  ArrowRightIcon,
+  SchoolIcon,
+  CheckCircleIcon,
+} from "../../components/UI/Icons.jsx";
 
-export default function Dashboard() {
+export default function AdminDashboard() {
   const { t } = useI18n();
   const toast = useToast();
   const nav = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError(false);
+  async function loadDashboard() {
     try {
-      setData(await api.get("/api/admin/dashboard"));
+      setLoading(true);
+      const d = await api.get("/api/admin/dashboard");
+      setData(d);
     } catch (err) {
-      setError(true);
       toast.show(err?.data?.message || "Failed to load dashboard", "error");
     } finally {
       setLoading(false);
@@ -29,68 +35,187 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadDashboard();
+    // eslint-disable-next-line
   }, []);
 
-  const totalPending = (data?.pendingStudentPayments || 0) + (data?.pendingTeacherPayments || 0);
-
   return (
-    <Layout title={t("adminDashboard")}>
-      <div className="stack" style={{ gap: 20 }}>
-        {loading ? (
-          <SkeletonCards count={4} />
-        ) : error ? (
-          <div className="card">
-            <ErrorState icon={<CloudOff size={22} />} title={t("couldntLoad")} onRetry={load} retryLabel={t("tryAgain")} />
+    <Layout
+      title={t("adminDashboard")}
+      subtitle="School management, teacher credentials, and payment slip verifications"
+    >
+      <div className="sams-admin-dash-container">
+        {/* Top Header Controls */}
+        <div className="sams-admin-header-row">
+          <div>
+            <h2 className="sams-admin-title">System Overview</h2>
+            <p className="sams-admin-sub">Monitor pending verifications and institutional setup</p>
           </div>
-        ) : (
-          <>
-            <div className="grid grid-4">
-              <StatCard icon={<GraduationCap size={18} />} label="Total teachers" value={data.totalTeachers} />
-              <StatCard icon={<Users size={18} />} label="Total students" value={data.totalStudents} />
-              <StatCard icon={<School size={18} />} label="Schools" value={data.totalSchools} />
-              <StatCard icon={<Wallet size={18} />} label="Pending payments" value={totalPending} accent={totalPending > 0} />
-            </div>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCwIcon size={14} />}
+            onClick={loadDashboard}
+            disabled={loading}
+          >
+            Refresh Data
+          </Button>
+        </div>
 
-            <div className="grid grid-2">
-              <div className="card">
-                <div className="h2">Active subscriptions</div>
-                <div className="row">
-                  <div className="col">
-                    <div className="stat-label">Teachers</div>
-                    <div className="stat-value">{data.activeTeacherSubscriptions}</div>
-                    <div className="faint" style={{ fontSize: 12 }}>of {data.totalTeachers} total</div>
-                  </div>
-                  <div className="col">
-                    <div className="stat-label">Students</div>
-                    <div className="stat-value">{data.activeStudentSubscriptions}</div>
-                    <div className="faint" style={{ fontSize: 12 }}>of {data.totalStudents} total</div>
-                  </div>
-                </div>
-              </div>
+        {/* Metrics Grid (Prompt Requirement 25) */}
+        <div className="sams-admin-metrics-grid">
+          <StatCard
+            icon={<CreditCardIcon size={24} />}
+            iconColor="amber"
+            label={t("pendingStudentPayments")}
+            value={data?.pendingStudentPayments ?? 0}
+            sublabel="Awaiting bank slip confirmation"
+            loading={loading && !data}
+          />
 
-              <div className="card">
-                <div className="h2">Pending actions</div>
-                <div className="stack" style={{ gap: 10 }}>
-                  <button className="btn btn-outline btn-block" type="button" onClick={() => nav("/admin/payments")} style={{ justifyContent: "space-between" }}>
-                    <span className="center-v" style={{ gap: 8 }}><Wallet size={15} /> {t("pendingStudentPayments")}</span>
-                    <span className="badge badge-warning">{data.pendingStudentPayments}</span>
-                  </button>
-                  <button className="btn btn-outline btn-block" type="button" onClick={() => nav("/admin/payments")} style={{ justifyContent: "space-between" }}>
-                    <span className="center-v" style={{ gap: 8 }}><CreditCard size={15} /> {t("pendingTeacherPayments")}</span>
-                    <span className="badge badge-warning">{data.pendingTeacherPayments}</span>
-                  </button>
-                  <button className="btn btn-block" type="button" onClick={() => nav("/admin/teachers")}>
-                    <GraduationCap size={15} /> Manage teachers
-                  </button>
-                </div>
-              </div>
+          <StatCard
+            icon={<CreditCardIcon size={24} />}
+            iconColor="purple"
+            label={t("pendingTeacherPayments")}
+            value={data?.pendingTeacherPayments ?? 0}
+            sublabel="Awaiting teacher slip approval"
+            loading={loading && !data}
+          />
+        </div>
+
+        {/* Quick Action Cards */}
+        <div className="sams-admin-cards-grid">
+          {/* Card 1: Review Payments */}
+          <Card hover className="sams-admin-action-card" onClick={() => nav("/admin/payments")}>
+            <div className="sams-admin-card-icon-wrap amber">
+              <CreditCardIcon size={24} color="#D97706" />
             </div>
-          </>
-        )}
+            <div className="sams-admin-card-info">
+              <h3 className="sams-admin-card-title">Payment Verification Center</h3>
+              <p className="sams-admin-card-desc">
+                Review uploaded bank slips, inspect proof documents, and approve or reject subscription requests.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              iconRight={<ArrowRightIcon size={14} />}
+            >
+              Manage Payments
+            </Button>
+          </Card>
+
+          {/* Card 2: Teacher & School Management */}
+          <Card hover className="sams-admin-action-card" onClick={() => nav("/admin/teachers")}>
+            <div className="sams-admin-card-icon-wrap blue">
+              <UsersIcon size={24} color="#0284C7" />
+            </div>
+            <div className="sams-admin-card-info">
+              <h3 className="sams-admin-card-title">Teacher & School Management</h3>
+              <p className="sams-admin-card-desc">
+                Register teacher accounts with secure temporary OTPs, create schools, grades, and classes.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              iconRight={<ArrowRightIcon size={14} />}
+            >
+              Manage Teachers
+            </Button>
+          </Card>
+        </div>
       </div>
+
+      <style>{`
+        .sams-admin-dash-container {
+          max-width: 1100px;
+          margin: 0 auto;
+        }
+
+        .sams-admin-header-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: 24px;
+        }
+
+        .sams-admin-title {
+          font-size: 20px;
+          font-weight: 800;
+          color: var(--text-main);
+          letter-spacing: -0.02em;
+        }
+
+        .sams-admin-sub {
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+        }
+
+        .sams-admin-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+          margin-bottom: 28px;
+        }
+
+        .sams-admin-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+        }
+
+        .sams-admin-action-card {
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 200px;
+          cursor: pointer;
+        }
+
+        .sams-admin-card-icon-wrap {
+          width: 48px;
+          height: 48px;
+          border-radius: var(--radius-lg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 16px;
+        }
+
+        .sams-admin-card-icon-wrap.amber {
+          background: #FEF3C7;
+        }
+
+        .sams-admin-card-icon-wrap.blue {
+          background: #E0F2FE;
+        }
+
+        .sams-admin-card-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: var(--text-main);
+          margin-bottom: 6px;
+        }
+
+        .sams-admin-card-desc {
+          font-size: 13px;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+          .sams-admin-metrics-grid {
+            grid-template-columns: 1fr;
+          }
+          .sams-admin-cards-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </Layout>
   );
 }

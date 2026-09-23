@@ -1,60 +1,60 @@
-import { useEffect, useMemo, useState } from "react";
-import { Search, Users, Star, TrendingUp, TrendingDown, CloudOff, ArrowLeft } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
 import { api } from "../../api/client.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useI18n } from "../../i18n/i18n.jsx";
+import { Card, Button, Badge, EmptyState } from "../../components/UI/index.jsx";
 import Stars from "../../components/Stars.jsx";
-import { Avatar, Skeleton, ErrorState, EmptyState } from "../../components/ui.jsx";
+import {
+  UsersIcon,
+  SearchIcon,
+  BookOpenIcon,
+  ClockIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  RefreshCwIcon,
+  StarIcon,
+  SchoolIcon,
+} from "../../components/UI/Icons.jsx";
 
-const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "active", label: "Active" },
-  { key: "inactive", label: "Needs attention" }
-];
-
-export default function Students() {
+export default function TeacherStudents() {
   const { t } = useI18n();
   const toast = useToast();
   const [blocked, setBlocked] = useState(false);
   const [blockMsg, setBlockMsg] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
 
   const [students, setStudents] = useState([]);
-  const [leaderRows, setLeaderRows] = useState([]);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
-
   const [selected, setSelected] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
   const [loadingActivities, setLoadingActivities] = useState(false);
-  const [rateDraft, setRateDraft] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("all");
+
+  const [rateDraft, setRateDraft] = useState({}); // activityId -> { tRate, tComment }
 
   async function loadStudents() {
-    setLoading(true);
     setBlocked(false);
     setBlockMsg("");
-    setError(false);
+    setLoadingStudents(true);
     try {
-      const [studs, lb] = await Promise.all([
-        api.get("/api/teacher/me/students"),
-        api.get("/api/teacher/leaderboard")
-      ]);
-      setStudents(studs);
-      setLeaderRows(lb.rows || []);
+      const d = await api.get("/api/teacher/me/students");
+      setStudents(Array.isArray(d) ? d : []);
+      if (d && d.length > 0 && !selected) {
+        setSelected(d[0]);
+        loadActivities(d[0].studentId);
+      }
     } catch (err) {
       if (err?.status === 403 && err?.data?.error === "TRIAL_EXPIRED") {
         setBlocked(true);
         setBlockMsg(err.data.message);
         return;
       }
-      setError(true);
       toast.show(err?.data?.message || "Failed to load students", "error");
     } finally {
-      setLoading(false);
+      setLoadingStudents(false);
     }
   }
 
@@ -62,45 +62,35 @@ export default function Students() {
     setLoadingActivities(true);
     try {
       const d = await api.get(`/api/teacher/me/students/${studentId}/activities`);
-      setActivities(d);
+      setActivities(Array.isArray(d) ? d : []);
       const draft = {};
-      d.forEach((a) => {
-        draft[a.activityId] = { tRate: a.tRate || 0, tComment: a.tComment || "" };
+      (d || []).forEach((a) => {
+        draft[a.activityId] = {
+          tRate: a.tRate || 0,
+          tComment: a.tComment || "",
+        };
       });
       setRateDraft(draft);
     } catch (err) {
-      toast.show(err?.data?.message || "Failed to load activities", "error");
+      toast.show(err?.data?.message || "Failed to load student activities", "error");
+      setActivities([]);
     } finally {
       setLoadingActivities(false);
     }
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadStudents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, []);
 
-  const statById = useMemo(() => new Map(leaderRows.map((r) => [r.studentId, r])), [leaderRows]);
-
-  const filtered = useMemo(() => {
-    return students
-      .map((s) => ({ ...s, stat: statById.get(s.studentId) }))
-      .filter((s) => s.name.toLowerCase().includes(query.trim().toLowerCase()))
-      .filter((s) => {
-        if (filter === "active") return (s.stat?.avgHoursPerDay || 0) > 0;
-        if (filter === "inactive") return !s.stat || s.stat.avgHoursPerDay === 0;
-        return true;
-      });
-  }, [students, statById, query, filter]);
-
-  async function saveRating(activityId) {
+  async function handleSaveRating(activityId) {
     setSavingId(activityId);
     try {
       const payload = rateDraft[activityId] || { tRate: 0, tComment: "" };
       await api.put(`/api/teacher/me/activities/${activityId}/rate`, payload);
-      toast.show("Rating saved", "success");
-      await loadActivities(selected.studentId);
+      toast.show("Teacher feedback & rating saved successfully!");
+      if (selected) await loadActivities(selected.studentId);
     } catch (err) {
       toast.show(err?.data?.message || "Failed to save rating", "error");
     } finally {
@@ -108,169 +98,528 @@ export default function Students() {
     }
   }
 
+  // Filter students
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      const matchSearch =
+        (s.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.className || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchGrade = gradeFilter === "all" || s.grade === gradeFilter;
+      return matchSearch && matchGrade;
+    });
+  }, [students, searchQuery, gradeFilter]);
+
+  // Unique grades for filter
+  const grades = useMemo(() => {
+    const set = new Set();
+    students.forEach((s) => {
+      if (s.grade) set.add(s.grade);
+    });
+    return Array.from(set);
+  }, [students]);
+
   return (
-    <Layout title={t("students")} subtitle={`${students.length} students`}>
+    <Layout
+      title={t("students")}
+      subtitle="Review student study activity logs, verify duration, and provide supportive feedback"
+    >
       <TrialGate blocked={blocked} message={blockMsg}>
-        {loading ? (
-          <div className="row">
-            <div className="col"><Skeleton height={320} radius={16} /></div>
-            <div className="col"><Skeleton height={320} radius={16} /></div>
-          </div>
-        ) : error ? (
-          <div className="card">
-            <ErrorState icon={<CloudOff size={22} />} title={t("couldntLoad")} onRetry={loadStudents} retryLabel={t("tryAgain")} />
-          </div>
-        ) : (
-          <div className="row" style={{ alignItems: "flex-start" }}>
-            <div className="col card" style={{ flex: "1 1 340px" }}>
-              <div className="field" style={{ marginBottom: 10 }}>
-                <div className="input-wrap">
-                  <input
-                    className="input"
-                    style={{ paddingLeft: 36 }}
-                    placeholder="Search students…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+        <div className="sams-students-page-container">
+          <div className="sams-students-layout">
+            {/* LEFT COLUMN: Student Roster with Search & Filter */}
+            <div className="sams-students-roster-column">
+              <Card className="sams-roster-card">
+                <div className="sams-roster-header">
+                  <div>
+                    <h2 className="sams-roster-title">{t("students")}</h2>
+                    <span className="sams-roster-count">{filteredStudents.length} mapped</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<RefreshCwIcon size={14} />}
+                    onClick={loadStudents}
+                    disabled={loadingStudents}
                   />
-                  <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)" }} />
                 </div>
-              </div>
 
-              <div className="tabs" style={{ marginBottom: 12 }}>
-                {FILTERS.map((f) => (
-                  <button key={f.key} type="button" className={"tab " + (filter === f.key ? "active" : "")} onClick={() => setFilter(f.key)}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+                {/* Search Bar */}
+                <div className="sams-roster-search-wrap">
+                  <SearchIcon size={16} color="var(--text-muted)" />
+                  <input
+                    type="text"
+                    className="sams-roster-search-input"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t("searchStudents")}
+                  />
+                </div>
 
-              {filtered.length === 0 ? (
-                <EmptyState icon={<Users size={20} />} title="No students found" message="Try a different search or filter." />
-              ) : (
-                <div className="stack" style={{ gap: 6, maxHeight: 520, overflowY: "auto" }}>
-                  {filtered.map((s) => {
-                    const active = s.stat && s.stat.avgHoursPerDay > 0;
-                    return (
+                {/* Grade Filters */}
+                {grades.length > 0 && (
+                  <div className="sams-grade-filter-chips">
+                    <button
+                      type="button"
+                      className={`sams-chip ${gradeFilter === "all" ? "active" : ""}`}
+                      onClick={() => setGradeFilter("all")}
+                    >
+                      All
+                    </button>
+                    {grades.map((g) => (
                       <button
-                        key={s.studentId}
+                        key={g}
                         type="button"
-                        onClick={() => {
-                          setSelected(s);
-                          loadActivities(s.studentId);
-                        }}
-                        className="between"
-                        style={{
-                          textAlign: "left",
-                          border: "1px solid " + (selected?.studentId === s.studentId ? "var(--primary)" : "var(--border)"),
-                          background: selected?.studentId === s.studentId ? "var(--primary-50)" : "var(--surface)",
-                          borderRadius: "var(--radius-md)",
-                          padding: "10px 12px"
-                        }}
+                        className={`sams-chip ${gradeFilter === g ? "active" : ""}`}
+                        onClick={() => setGradeFilter(g)}
                       >
-                        <div className="center-v" style={{ gap: 10 }}>
-                          <Avatar name={s.name} size="sm" />
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.name}</div>
-                            <div className="faint" style={{ fontSize: 11.5 }}>{s.grade} {s.className}</div>
-                          </div>
-                        </div>
-                        {s.stat ? (
-                          <span className={"stat-trend " + (s.stat.changePercent >= 0 ? "up" : "down")} style={{ fontSize: 11.5 }}>
-                            {s.stat.changePercent >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                            {s.stat.avgHoursPerDay}h
-                          </span>
-                        ) : (
-                          <span className="badge badge-warning" style={{ fontSize: 10.5 }}>
-                            {active ? "" : "No activity"}
-                          </span>
-                        )}
+                        {g}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+
+                {/* Student List */}
+                <div className="sams-student-items-list">
+                  {loadingStudents ? (
+                    <div style={{ padding: 20, textAlign: "center", color: "#94A3B8" }}>
+                      Loading students...
+                    </div>
+                  ) : filteredStudents.length === 0 ? (
+                    <div style={{ padding: 24, textAlign: "center", color: "#64748B" }}>
+                      No matching students found.
+                    </div>
+                  ) : (
+                    filteredStudents.map((st) => {
+                      const isSelected = selected?.studentId === st.studentId;
+                      return (
+                        <div
+                          key={st.studentId}
+                          className={`sams-student-list-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setSelected(st);
+                            loadActivities(st.studentId);
+                          }}
+                        >
+                          <div className="sams-student-avatar">
+                            {st.name?.charAt(0) || "S"}
+                          </div>
+                          <div className="sams-student-info">
+                            <h3 className="sams-student-name">{st.name}</h3>
+                            <div className="sams-student-meta">
+                              <span>{st.grade}</span> &nbsp;·&nbsp;
+                              <span>Class {st.className}</span>
+                            </div>
+                          </div>
+                          {isSelected && <div className="sams-selected-indicator" />}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-              )}
+              </Card>
             </div>
 
-            <div className="col card" style={{ flex: "1.6 1 420px" }}>
+            {/* RIGHT COLUMN: Student Activity Inspection & Rating */}
+            <div className="sams-student-detail-column">
               {!selected ? (
-                <EmptyState icon={<Users size={22} />} title="Select a student" message="Choose a student from the list to review and rate their study activities." />
+                <Card>
+                  <EmptyState
+                    icon={<UsersIcon size={40} color="var(--accent)" />}
+                    title="Select a Student"
+                    description="Choose a student from the left panel to review their study logs and submit feedback."
+                  />
+                </Card>
               ) : (
-                <>
-                  <div className="between mb-3">
-                    <div className="center-v" style={{ gap: 10 }}>
-                      <button className="btn-ghost btn-icon" type="button" onClick={() => setSelected(null)} aria-label="Back">
-                        <ArrowLeft size={16} />
-                      </button>
-                      <Avatar name={selected.name} />
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.name}</div>
-                        <div className="faint" style={{ fontSize: 12 }}>{selected.school} · {selected.grade} {selected.className}</div>
+                <div className="sams-student-inspect-card">
+                  {/* Student Profile Hero Header */}
+                  <div className="sams-inspect-profile-header">
+                    <div className="sams-inspect-avatar">
+                      {selected.name?.charAt(0) || "S"}
+                    </div>
+                    <div className="sams-inspect-details">
+                      <h2 className="sams-inspect-name">{selected.name}</h2>
+                      <div className="sams-inspect-school-row">
+                        <SchoolIcon size={14} color="var(--accent)" />
+                        <span>{selected.school}</span> &nbsp;·&nbsp;
+                        <Badge variant="primary" size="sm">
+                          {selected.grade} - {selected.className}
+                        </Badge>
                       </div>
                     </div>
                   </div>
 
-                  {loadingActivities ? (
-                    <div className="stack"><Skeleton height={90} radius={12} /><Skeleton height={90} radius={12} /></div>
-                  ) : activities.length === 0 ? (
-                    <EmptyState icon={<Users size={20} />} title="No activities yet" message="This student hasn't logged any study activity." />
-                  ) : (
-                    <div className="stack" style={{ gap: 12 }}>
-                      {activities.map((a) => (
-                        <div key={a.activityId} className="card card-flat" style={{ background: "var(--muted)" }}>
-                          <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
-                            <div className="h3">{a.subjectName}</div>
-                            <div className="center-v" style={{ gap: 6 }}>
-                              <span className="badge">{a.durationMinutes} min</span>
-                              <span className="faint" style={{ fontSize: 12 }}>{a.startDate} · {a.startTime}–{a.endTime}</span>
-                            </div>
-                          </div>
-                          {a.description && <p className="subtitle mt-2">{a.description}</p>}
-
-                          <hr />
-                          <div className="row">
-                            <div className="col">
-                              <div className="label">{t("teacherRate")}</div>
-                              <Stars
-                                value={rateDraft[a.activityId]?.tRate || 0}
-                                onChange={(v) => setRateDraft((p) => ({ ...p, [a.activityId]: { ...p[a.activityId], tRate: v } }))}
-                              />
-                              <textarea
-                                className="textarea mt-2"
-                                placeholder={t("comment")}
-                                value={rateDraft[a.activityId]?.tComment || ""}
-                                onChange={(e) => setRateDraft((p) => ({ ...p, [a.activityId]: { ...p[a.activityId], tComment: e.target.value } }))}
-                              />
-                              <button
-                                className="btn btn-sm mt-2"
-                                type="button"
-                                onClick={() => saveRating(a.activityId)}
-                                disabled={savingId === a.activityId}
-                              >
-                                {savingId === a.activityId ? "Saving…" : t("save")}
-                              </button>
-                            </div>
-                            <div className="col">
-                              <div className="label">{t("parentRate")}</div>
-                              {a.pRate ? (
-                                <div className="center-v" style={{ gap: 6 }}>
-                                  <span className="badge badge-accent"><Star size={11} /> {a.pRate}/5</span>
-                                  {a.pComment && <span className="faint" style={{ fontSize: 12 }}>"{a.pComment}"</span>}
-                                </div>
-                              ) : (
-                                <span className="faint" style={{ fontSize: 12.5 }}>Not rated yet</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                  {/* Activity Stream */}
+                  <div className="sams-inspect-activities-section">
+                    <div className="sams-inspect-section-title">
+                      <h3>Study Activity History</h3>
+                      <span className="sams-inspect-count">
+                        {activities.length} session{activities.length !== 1 ? "s" : ""}
+                      </span>
                     </div>
-                  )}
-                </>
+
+                    {loadingActivities ? (
+                      <div style={{ padding: 40, textAlign: "center", color: "#94A3B8" }}>
+                        Loading study sessions...
+                      </div>
+                    ) : activities.length === 0 ? (
+                      <Card>
+                        <EmptyState
+                          icon={<BookOpenIcon size={36} color="var(--accent)" />}
+                          title="No Activities Logged Yet"
+                          description={`${selected.name} has not recorded any study sessions yet.`}
+                        />
+                      </Card>
+                    ) : (
+                      <div className="sams-inspect-activities-list">
+                        {activities.map((act) => {
+                          const draft = rateDraft[act.activityId] || { tRate: 0, tComment: "" };
+                          const isSaving = savingId === act.activityId;
+                          return (
+                            <Card key={act.activityId} className="sams-inspect-act-card">
+                              <div className="sams-act-header-row">
+                                <div>
+                                  <h4 className="sams-act-subject">{act.subjectName}</h4>
+                                  <div className="sams-act-time-row">
+                                    <CalendarIcon size={13} />
+                                    <span>{act.startDate}</span> &nbsp;·&nbsp;
+                                    <ClockIcon size={13} />
+                                    <span>{act.startTime} – {act.endTime}</span>
+                                  </div>
+                                </div>
+                                <Badge variant="primary" size="md">
+                                  {act.durationMinutes} min
+                                </Badge>
+                              </div>
+
+                              {act.description && (
+                                <p className="sams-act-desc-quote">
+                                  “{act.description}”
+                                </p>
+                              )}
+
+                              {/* Teacher Grading & Feedback Form */}
+                              <div className="sams-rate-box">
+                                <div className="sams-rate-box-title">
+                                  <span>{t("teacherRate")}</span>
+                                  <Stars
+                                    value={draft.tRate}
+                                    size={22}
+                                    onChange={(newVal) =>
+                                      setRateDraft((prev) => ({
+                                        ...prev,
+                                        [act.activityId]: { ...draft, tRate: newVal },
+                                      }))
+                                    }
+                                  />
+                                </div>
+
+                                <div className="sams-comment-input-row">
+                                  <input
+                                    type="text"
+                                    className="sams-input sams-comment-input"
+                                    value={draft.tComment}
+                                    onChange={(e) =>
+                                      setRateDraft((prev) => ({
+                                        ...prev,
+                                        [act.activityId]: { ...draft, tComment: e.target.value },
+                                      }))
+                                    }
+                                    placeholder="Leave an encouraging note for the student..."
+                                  />
+                                  <Button
+                                    variant="primary"
+                                    size="md"
+                                    loading={isSaving}
+                                    onClick={() => handleSaveRating(act.activityId)}
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        )}
+        </div>
       </TrialGate>
+
+      <style>{`
+        .sams-students-page-container {
+          max-width: 1180px;
+          margin: 0 auto;
+        }
+
+        .sams-students-layout {
+          display: grid;
+          grid-template-columns: 340px 1fr;
+          gap: 24px;
+          align-items: flex-start;
+        }
+
+        /* Roster Column */
+        .sams-roster-card {
+          padding: 20px;
+          border: 1px solid var(--border-subtle);
+        }
+
+        .sams-roster-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .sams-roster-title {
+          font-size: 18px;
+          font-weight: 800;
+          color: var(--text-main);
+        }
+
+        .sams-roster-count {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        .sams-roster-search-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--bg-card-muted);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 8px 12px;
+          margin-bottom: 12px;
+        }
+
+        .sams-roster-search-input {
+          border: none;
+          background: transparent;
+          font-size: 13px;
+          width: 100%;
+          outline: none;
+        }
+
+        .sams-grade-filter-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 16px;
+        }
+
+        .sams-student-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-height: 65vh;
+          overflow-y: auto;
+        }
+
+        .sams-student-list-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: var(--radius-lg);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          position: relative;
+        }
+
+        .sams-student-list-item:hover {
+          background: var(--bg-card-muted);
+        }
+
+        .sams-student-list-item.selected {
+          background: var(--accent-soft);
+        }
+
+        .sams-student-avatar {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          background: var(--primary-gradient);
+          color: white;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          flex-shrink: 0;
+        }
+
+        .sams-student-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .sams-student-name {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text-main);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .sams-student-meta {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        .sams-selected-indicator {
+          width: 3px;
+          height: 24px;
+          background: var(--accent);
+          border-radius: var(--radius-pill);
+        }
+
+        /* Detail Column */
+        .sams-student-inspect-card {
+          background: #FFFFFF;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-2xl);
+          padding: 28px;
+          box-shadow: var(--shadow-sm);
+        }
+
+        .sams-inspect-profile-header {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--border-subtle);
+          margin-bottom: 24px;
+        }
+
+        .sams-inspect-avatar {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #0B2E59 0%, #2E86C1 100%);
+          color: white;
+          font-size: 24px;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sams-inspect-name {
+          font-size: 20px;
+          font-weight: 800;
+          color: var(--text-main);
+          letter-spacing: -0.02em;
+        }
+
+        .sams-inspect-school-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-top: 4px;
+        }
+
+        .sams-inspect-section-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .sams-inspect-section-title h3 {
+          font-size: 16px;
+          font-weight: 800;
+          color: var(--primary);
+        }
+
+        .sams-inspect-count {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-secondary);
+        }
+
+        .sams-inspect-activities-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .sams-inspect-act-card {
+          padding: 18px 20px;
+          border: 1px solid var(--border-subtle);
+        }
+
+        .sams-act-header-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+
+        .sams-act-subject {
+          font-size: 16px;
+          font-weight: 800;
+          color: var(--text-main);
+        }
+
+        .sams-act-time-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+        }
+
+        .sams-act-desc-quote {
+          font-size: 13px;
+          color: var(--text-secondary);
+          font-style: italic;
+          background: var(--bg-card-muted);
+          padding: 8px 12px;
+          border-radius: var(--radius-md);
+          margin: 8px 0 14px;
+        }
+
+        .sams-rate-box {
+          background: #F8FAFC;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-lg);
+          padding: 12px 14px;
+        }
+
+        .sams-rate-box-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-main);
+          margin-bottom: 10px;
+        }
+
+        .sams-comment-input-row {
+          display: flex;
+          gap: 8px;
+        }
+
+        .sams-comment-input {
+          flex: 1;
+        }
+
+        @media (max-width: 900px) {
+          .sams-students-layout {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </Layout>
   );
 }
