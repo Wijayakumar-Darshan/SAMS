@@ -13,7 +13,8 @@ import {
   Menu,
   LogOut,
   Moon,
-  Sun
+  Sun,
+  Calendar
 } from "lucide-react";
 import LanguageSwitch from "./LanguageSwitch.jsx";
 import { useAuth } from "../state/AuthContext.jsx";
@@ -27,6 +28,7 @@ function navItems(role, t) {
       { to: "/student/dashboard", label: t("dashboard"), icon: LayoutDashboard },
       { to: "/student/activities", label: t("activities"), icon: BookOpenCheck },
       { to: "/student/leaderboard", label: t("leaderboard"), icon: Trophy },
+      { to: "/student/calendar", label: t("calendar"), icon: Calendar },
       { to: "/student/report", label: t("report"), icon: FileBarChart2 },
       { to: "/student/map-teacher", label: t("mapTeacher"), icon: QrCode },
       { to: "/subscription", label: t("subscription"), icon: CreditCard }
