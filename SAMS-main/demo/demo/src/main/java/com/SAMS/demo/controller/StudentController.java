@@ -65,27 +65,28 @@ public class StudentController {
    * Student dashboard summary.
    * Blocked when trial expired.
    */
-  @GetMapping("/me/dashboard")
-  public Map<String, Object> dashboard(Authentication auth) {
-    Student s = requireMeStudent(auth);
-    requireActiveTrial(s);
+ @GetMapping("/me/dashboard")
+public Map<String, Object> dashboard(Authentication auth) {
+  Student s = requireMeStudent(auth);
+  requireActiveTrial(s);
 
-    LocalDate today = LocalDate.now(zoneId);
-    long daysLeft = s.getTierExpDate() == null ? 0 : Duration.between(today.atStartOfDay(zoneId), s.getTierExpDate().plusDays(1).atStartOfDay(zoneId)).toDays();
-    if (daysLeft < 0) daysLeft = 0;
+  LocalDate today = LocalDate.now(zoneId);
+  long daysLeft = s.getTierExpDate() == null ? 0
+      : Duration.between(today.atStartOfDay(zoneId), s.getTierExpDate().plusDays(1).atStartOfDay(zoneId)).toDays();
+  if (daysLeft < 0) daysLeft = 0;
 
-    var weekStart = weeklyLogService.currentWeekStart();
-    var rep = weeklyLogService.computeAndStoreWeeklyLog(s.getStudentId(), weekStart);
+  var weekStart = weeklyLogService.currentWeekStart();
+  var rep = weeklyLogService.computeAndStoreWeeklyLog(s.getStudentId(), weekStart);
 
-    return Map.of(
-        "studentName", s.getName(),
-        "trialExpDate", String.valueOf(s.getTierExpDate()),
-        "daysLeft", daysLeft,
-        "avgHoursPerDay", rep.avgHoursPerDay(),
-        "mostSpentSubject", rep.mostSpentSubject(),
-        "changePercentVsLastWeek", rep.changePercentVsLastWeek()
-    );
-  }
+  Map<String, Object> m = new LinkedHashMap<>();
+  m.put("studentName", s.getName());
+  m.put("trialExpDate", String.valueOf(s.getTierExpDate()));
+  m.put("daysLeft", daysLeft);
+  m.put("avgHoursPerDay", rep.avgHoursPerDay());
+  m.put("mostSpentSubject", rep.mostSpentSubject()); // can be null -> OK now
+  m.put("changePercentVsLastWeek", rep.changePercentVsLastWeek());
+  return m;
+}
 
   public record ActivityReq(
       @NotBlank String subjectName,
@@ -95,31 +96,30 @@ public class StudentController {
       String description
   ) {}
 
-  @GetMapping("/me/activities")
-  public List<Map<String, Object>> myActivities(Authentication auth) {
-    Student s = requireMeStudent(auth);
-    requireActiveTrial(s);
+ @GetMapping("/me/activities")
+public List<Map<String, Object>> myActivities(Authentication auth) {
+  Student s = requireMeStudent(auth);
+  requireActiveTrial(s);
 
-    return activityRepo.findByStudent_StudentIdOrderByStartDateDescStartTimeDesc(s.getStudentId())
-        .stream()
-        .map(a -> {
-          Map<String, Object> m = new LinkedHashMap<>();
-          m.put("activityId", a.getActivityId());
-          m.put("subjectName", a.getSubjectName());
-          m.put("startDate", String.valueOf(a.getStartDate()));
-          m.put("startTime", String.valueOf(a.getStartTime()));
-          m.put("endTime", String.valueOf(a.getEndTime()));
-          m.put("durationMinutes", a.getDurationMinutes());
-          m.put("description", Optional.ofNullable(a.getDescription()).orElse(""));
-          m.put("tRate", a.gettRate());
-          m.put("tComment", a.gettComment());
-          m.put("pRate", a.getpRate());
-          m.put("pComment", a.getpComment());
-          return m;
-        })
-        .toList();
-  }
-
+  return activityRepo.findByStudent_StudentIdOrderByStartDateDescStartTimeDesc(s.getStudentId())
+      .stream()
+      .map(a -> {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("activityId", a.getActivityId());
+        m.put("subjectName", a.getSubjectName());
+        m.put("startDate", String.valueOf(a.getStartDate()));
+        m.put("startTime", String.valueOf(a.getStartTime()));
+        m.put("endTime", String.valueOf(a.getEndTime()));
+        m.put("durationMinutes", a.getDurationMinutes());
+        m.put("description", a.getDescription()); // can be null
+        m.put("tRate", a.gettRate());             // can be null
+        m.put("tComment", a.gettComment());       // can be null
+        m.put("pRate", a.getpRate());             // can be null
+        m.put("pComment", a.getpComment());       // can be null
+        return m;
+      })
+      .toList();
+}
   @PostMapping("/me/activities")
   public Map<String, Object> create(Authentication auth, @RequestBody ActivityReq req) {
     Student s = requireMeStudent(auth);
@@ -163,24 +163,75 @@ public class StudentController {
    * Student leaderboard table only (no emails).
    * Blocked when trial expired.
    */
+  // @GetMapping("/me/leaderboard")
+  // public Map<String, Object> leaderboard(Authentication auth) {
+  //   Student s = requireMeStudent(auth);
+  //   requireActiveTrial(s);
+
+  //   var weekStart = weeklyLogService.currentWeekStart();
+  //   var rows = weeklyLogService.leaderboardForAllStudents(weekStart);
+
+  //   // Students should not see other student details; name + avg only.
+  //   List<Map<String, Object>> table = rows.stream().map(r -> Map.<String, Object>of(
+  //       "rank", 0, // frontend can compute rank after sorting; kept for compatibility
+  //       "studentName", r.studentName(),
+  //       "avgHoursPerDay", r.avgHoursPerDay(),
+  //       "changePercent", r.changePercent()
+  //   )).toList();
+
+  //   return Map.of("weekStart", String.valueOf(weekStart), "rows", table);
+  // }
+
   @GetMapping("/me/leaderboard")
-  public Map<String, Object> leaderboard(Authentication auth) {
-    Student s = requireMeStudent(auth);
-    requireActiveTrial(s);
+public Map<String, Object> leaderboard(Authentication auth) {
+  Student me = requireMeStudent(auth);
+  requireActiveTrial(me);
 
-    var weekStart = weeklyLogService.currentWeekStart();
-    var rows = weeklyLogService.leaderboardForAllStudents(weekStart);
+  LocalDate weekStart = weeklyLogService.currentWeekStart();
 
-    // Students should not see other student details; name + avg only.
-    List<Map<String, Object>> table = rows.stream().map(r -> Map.<String, Object>of(
-        "rank", 0, // frontend can compute rank after sorting; kept for compatibility
-        "studentName", r.studentName(),
-        "avgHoursPerDay", r.avgHoursPerDay(),
-        "changePercent", r.changePercent()
-    )).toList();
+  // 1) Decide which teacher group to use
+  Long teacherId = null;
 
-    return Map.of("weekStart", String.valueOf(weekStart), "rows", table);
+  // Prefer class teacher (student.teacher_id) if set
+  if (me.getTeacher() != null && me.getTeacher().getTeacherId() != null) {
+    teacherId = me.getTeacher().getTeacherId();
+  } else {
+    // Otherwise: latest linked teacher from teacher_student
+    var latestLink = teacherStudentRepo.findFirstByStudent_StudentIdOrderByLinkedAtDesc(me.getStudentId());
+    if (latestLink.isPresent()) {
+      teacherId = latestLink.get().getTeacher().getTeacherId();
+    }
   }
+
+  // If no teacher linked, return empty leaderboard
+  if (teacherId == null) {
+    Map<String, Object> out = new LinkedHashMap<>();
+    out.put("weekStart", String.valueOf(weekStart));
+    out.put("rows", List.of());
+    return out;
+  }
+
+  // 2) Load only students linked to that teacher (IDs only -> avoids lazy loading errors)
+  List<Long> studentIds = teacherStudentRepo.findStudentIdsByTeacherId(teacherId);
+  List<Student> groupStudents = studentIds.isEmpty() ? List.of() : studentRepo.findAllById(studentIds);
+
+  // 3) Compute leaderboard for that subset
+  var rows = weeklyLogService.leaderboardForStudents(groupStudents, weekStart);
+
+  // 4) Students see table only (no studentId)
+  List<Map<String, Object>> table = rows.stream().map(r -> {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("studentName", r.studentName() == null ? "" : r.studentName());
+    m.put("avgHoursPerDay", r.avgHoursPerDay());
+    m.put("changePercent", r.changePercent());
+    return m;
+  }).toList();
+
+  Map<String, Object> out = new LinkedHashMap<>();
+  out.put("weekStart", String.valueOf(weekStart));
+  out.put("rows", table);
+  return out;
+}
 
   /**
    * Weekly report data (chart source).

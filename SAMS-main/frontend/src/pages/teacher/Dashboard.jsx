@@ -24,32 +24,53 @@ export default function Dashboard() {
   const [savingPw, setSavingPw] = useState(false);
   const qrRef = useRef(null);
 
-  async function load() {
-    setLoading(true);
-    setBlocked(false);
-    setBlockMsg("");
-    setError(false);
-    try {
-      const [dash, studs, lb] = await Promise.all([
-        api.get("/api/teacher/me/dashboard"),
-        api.get("/api/teacher/me/students"),
-        api.get("/api/teacher/leaderboard")
-      ]);
-      setData(dash);
-      setStudents(studs);
-      setLeaderRows(lb.rows || []);
-    } catch (err) {
+ async function load() {
+  setLoading(true);
+  setBlocked(false);
+  setBlockMsg("");
+  setError(false);
+
+  try {
+    const results = await Promise.allSettled([
+      api.get("/api/teacher/me/dashboard"),
+      api.get("/api/teacher/me/students"),
+      api.get("/api/teacher/leaderboard")
+    ]);
+
+    const dashRes = results[0];
+    const studsRes = results[1];
+    const lbRes = results[2];
+
+    // If dashboard itself fails, treat it as page failure
+    if (dashRes.status === "rejected") {
+      const err = dashRes.reason;
       if (err?.status === 403 && err?.data?.error === "TRIAL_EXPIRED") {
         setBlocked(true);
         setBlockMsg(err.data.message);
         return;
       }
-      setError(true);
-      toast.show(err?.data?.message || "Failed to load dashboard", "error");
-    } finally {
-      setLoading(false);
+      throw err;
     }
+
+    // Dashboard success
+    setData(dashRes.value);
+
+    // Students: if fails, just show empty list
+    if (studsRes.status === "fulfilled") setStudents(studsRes.value);
+    else setStudents([]);
+
+    // Leaderboard: if fails, show empty rows but still render dashboard
+    if (lbRes.status === "fulfilled") setLeaderRows(lbRes.value?.rows || []);
+    else setLeaderRows([]);
+
+  } catch (err) {
+    console.error("Teacher dashboard load failed:", err);
+    setError(true);
+    toast.show(err?.data?.message || "Failed to load dashboard", "error");
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

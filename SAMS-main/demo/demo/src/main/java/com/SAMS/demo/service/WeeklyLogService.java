@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,10 +31,10 @@ public class WeeklyLogService {
     this.zoneId = ZoneId.of(timezone);
   }
 
-  public LocalDate currentWeekStart() {
-    LocalDate today = LocalDate.now(zoneId);
-    return today.with(java.time.DayOfWeek.MONDAY);
-  }
+ public LocalDate currentWeekStart() {
+  LocalDate today = LocalDate.now(zoneId);
+  return today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+}
 
   public WeeklyReport computeAndStoreWeeklyLog(Long studentId, LocalDate weekStart) {
     Student student = studentRepo.findById(studentId).orElseThrow();
@@ -157,4 +158,19 @@ public class WeeklyLogService {
       double avgHoursPerDay,
       double changePercent
   ) { }
+
+  public List<LeaderboardRow> leaderboardForStudents(List<Student> students, LocalDate weekStart) {
+  List<LeaderboardRow> rows = new java.util.ArrayList<>();
+  for (Student s : students) {
+    WeeklyReport rep = computeAndStoreWeeklyLog(s.getStudentId(), weekStart);
+    rows.add(new LeaderboardRow(
+        s.getStudentId(),
+        s.getName(),
+        rep.avgHoursPerDay(),
+        rep.changePercentVsLastWeek()
+    ));
+  }
+  rows.sort(java.util.Comparator.comparingDouble(LeaderboardRow::avgHoursPerDay).reversed());
+  return rows;
+}
 }

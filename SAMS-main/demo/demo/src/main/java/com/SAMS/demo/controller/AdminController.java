@@ -101,6 +101,7 @@ public class AdminController {
           m.put("mappingCode", t.getMappingCode());
           m.put("tierExpDate", String.valueOf(t.getTierExpDate()));
           m.put("passwordSet", t.isPasswordSet());
+           m.put("otp", t.isPasswordSet() ? "" : (t.getOtp() == null ? "" : t.getOtp()));
           return m;
         })
         .toList();
