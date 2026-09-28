@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface TeacherNotificationRepository extends JpaRepository<TeacherNotification, Long> {
   List<TeacherNotification> findByTeacher_TeacherIdOrderByCreatedAtDesc(Long teacherId);
+  void deleteAllByTeacher_TeacherId(Long teacherId);
+
 }

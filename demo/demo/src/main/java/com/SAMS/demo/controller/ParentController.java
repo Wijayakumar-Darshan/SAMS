@@ -51,6 +51,20 @@ public class ParentController {
     }
   }
 
+  @GetMapping("/me/profile")
+  public Map<String, Object> profile(Authentication auth) {
+    Student s = child(auth);
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("studentName", s.getName());
+    m.put("guardianName", s.getGuardianName());
+    m.put("email", s.getEmail());
+    m.put("school", s.getSchool());
+    m.put("grade", s.getGrade());
+    m.put("className", s.getClassName());
+    m.put("tierExpDate", s.getTierExpDate() == null ? null : s.getTierExpDate().toString());
+    return m;
+  }
+
   @GetMapping("/me/dashboard")
   public Map<String, Object> dashboard(Authentication auth) {
     Student s = child(auth);

@@ -62,6 +62,47 @@ public class StudentController {
     }
   }
 
+  public record ProfileUpdateReq(
+      @NotBlank String name,
+      @NotBlank String email,
+      @NotBlank String guardianName,
+      @NotBlank String school,
+      @NotBlank String grade,
+      @NotBlank String className
+  ) {}
+
+  @GetMapping("/me/profile")
+  public Map<String, Object> profile(Authentication auth) {
+    Student s = requireMeStudent(auth);
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("studentId", s.getStudentId());
+    m.put("name", s.getName());
+    m.put("email", s.getEmail());
+    m.put("guardianName", s.getGuardianName());
+    m.put("school", s.getSchool());
+    m.put("grade", s.getGrade());
+    m.put("className", s.getClassName());
+    m.put("tierExpDate", s.getTierExpDate() == null ? null : s.getTierExpDate().toString());
+    return m;
+  }
+
+  @PutMapping("/me/profile")
+  public Map<String, Object> updateProfile(Authentication auth, @RequestBody ProfileUpdateReq req) {
+    Student s = requireMeStudent(auth);
+    String email = req.email().trim().toLowerCase();
+    if (!email.equalsIgnoreCase(s.getEmail()) && studentRepo.existsByEmail(email)) {
+      throw new IllegalArgumentException("Email already exists");
+    }
+    s.setName(req.name().trim());
+    s.setEmail(email);
+    s.setGuardianName(req.guardianName().trim());
+    s.setSchool(req.school().trim());
+    s.setGrade(req.grade().trim());
+    s.setClassName(req.className().trim());
+    studentRepo.save(s);
+    return Map.of("message", "Profile updated successfully");
+  }
+
   /**
    * Student dashboard summary.
    * Blocked when trial expired.

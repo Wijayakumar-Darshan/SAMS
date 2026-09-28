@@ -1,6 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { School, GraduationCap, Clock, BookOpen, TrendingUp, TrendingDown, Printer, Star, CloudOff } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+import {
+  School,
+  GraduationCap,
+  Clock,
+  BookOpen,
+  TrendingUp,
+  TrendingDown,
+  Printer,
+  Star,
+  CloudOff,
+  Calendar,
+  MessageSquare,
+} from "lucide-react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
 import { api } from "../../api/client.js";
@@ -36,7 +56,6 @@ export default function Dashboard() {
   const [blockMsg, setBlockMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
   const [child, setChild] = useState(null);
   const [activities, setActivities] = useState([]);
   const [draft, setDraft] = useState({});
@@ -53,7 +72,7 @@ export default function Dashboard() {
       const [d, acts, rep] = await Promise.all([
         api.get("/api/parent/me/dashboard"),
         api.get("/api/parent/me/activities"),
-        api.get("/api/parent/me/weekly-report")
+        api.get("/api/parent/me/weekly-report"),
       ]);
       setChild(d);
       setActivities(acts);
@@ -87,7 +106,9 @@ export default function Dashboard() {
 
   const todayMinutes = useMemo(() => {
     const today = toDateStr(new Date());
-    return activities.filter((a) => a.startDate === today).reduce((s, a) => s + (a.durationMinutes || 0), 0);
+    return activities
+      .filter((a) => a.startDate === today)
+      .reduce((s, a) => s + (a.durationMinutes || 0), 0);
   }, [activities]);
 
   async function saveRating(activityId) {
@@ -114,11 +135,12 @@ export default function Dashboard() {
         <head>
           <title>SAMS Weekly Report</title>
           <style>
-            body { font-family: "Noto Sans Sinhala", Arial; padding: 16px; }
-            .wm { position: fixed; inset: 0; display: grid; place-items: center; opacity: 0.08; font-size: 56px; font-weight: 800; transform: rotate(-18deg); }
-            .card { border: 1px solid #d6e2f0; border-radius: 12px; padding: 14px; }
-            .badge { display: inline-block; padding: 4px 8px; border: 1px solid #d6e2f0; border-radius: 999px; background: #f3f6fb; font-size: 12px; }
-            .legal { margin-top: 12px; font-size: 12px; background: #f3f6fb; padding: 10px; border: 1px dashed #ccc; border-radius: 10px; }
+            body { font-family: "Noto Sans Sinhala", Arial, sans-serif; padding: 24px; color: #1e293b; }
+            .wm { position: fixed; inset: 0; display: grid; place-items: center; opacity: 0.06; font-size: 64px; font-weight: 800; transform: rotate(-18deg); pointer-events: none; }
+            .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+            .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #f1f5f9; font-size: 12px; font-weight: 600; }
+            .legal { margin-top: 20px; font-size: 12px; background: #f8fafc; padding: 12px; border: 1px dashed #cbd5e1; border-radius: 10px; color: #64748b; }
+            h2 { margin: 0 0 12px; font-size: 18px; }
           </style>
         </head>
         <body>
@@ -135,133 +157,456 @@ export default function Dashboard() {
   return (
     <Layout
       title={t("dashboard")}
-      subtitle={child ? `${child.studentName}'s progress` : undefined}
-      actions={report && (
-        <button className="btn btn-outline btn-sm" type="button" onClick={printReport}>
-          <Printer size={14} /> {t("downloadPdf")}
-        </button>
-      )}
+      subtitle={child ? `${child.studentName}'s learning progress` : undefined}
+      actions={
+        report && (
+          <button className="btn btn-outline btn-sm" type="button" onClick={printReport}>
+            <Printer size={15} strokeWidth={2} />
+            {t("downloadPdf")}
+          </button>
+        )
+      }
     >
       <TrialGate blocked={blocked} message={blockMsg}>
         {loading ? (
-          <div className="stack">
-            <Skeleton height={110} radius={16} />
-            <div className="grid grid-4"><Skeleton height={90} radius={16} /><Skeleton height={90} radius={16} /><Skeleton height={90} radius={16} /><Skeleton height={90} radius={16} /></div>
+          <div className="stack" style={{ gap: 20 }}>
+            <Skeleton height={120} radius={18} />
+            <div className="grid grid-4 parentDashWide" style={{ gap: 16 }}>
+              <Skeleton height={96} radius={16} />
+              <Skeleton height={96} radius={16} />
+              <Skeleton height={96} radius={16} />
+              <Skeleton height={96} radius={16} />
+            </div>
+            <div className="grid" style={{ gridTemplateColumns: "1.1fr 1fr", gap: 20 }}>
+              <Skeleton height={280} radius={18} />
+              <Skeleton height={280} radius={18} />
+            </div>
           </div>
         ) : error ? (
-          <div className="card">
-            <ErrorState icon={<CloudOff size={22} />} title={t("couldntLoad")} onRetry={load} retryLabel={t("tryAgain")} />
+          <div className="card" style={{ padding: 40, textAlign: "center" }}>
+            <ErrorState
+              icon={<CloudOff size={28} />}
+              title={t("couldntLoad")}
+              onRetry={load}
+              retryLabel={t("tryAgain")}
+            />
           </div>
         ) : (
-          <div className="stack" style={{ gap: 20 }}>
-            {/* Calm welcome card */}
-            <div className="card card-pad-lg" style={{ background: "linear-gradient(135deg, var(--info), var(--primary))", color: "#fff", border: "none" }}>
-              <div className="center-v" style={{ gap: 14 }}>
-                <Avatar name={child?.studentName} size="lg" />
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{child?.studentName}</div>
-                  <div className="center-v" style={{ gap: 12, fontSize: 13.5, color: "rgba(255,255,255,0.85)", flexWrap: "wrap" }}>
-                    <span className="center-v" style={{ gap: 4 }}><School size={13} /> {child?.school}</span>
-                    <span className="center-v" style={{ gap: 4 }}><GraduationCap size={13} /> {child?.grade} {child?.className}</span>
+          <div className="parentDashGrid" style={{ gap: 20 }}>
+            {/* ── Student Welcome Header ── */}
+            <div
+              className="card parentDashWide"
+              style={{
+                background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 55%, #3b82f6 100%)",
+                color: "#fff",
+                border: "none",
+                padding: "22px 26px",
+                borderRadius: 18,
+                boxShadow: "0 10px 30px -8px rgba(37, 99, 235, 0.35)",
+              }}
+            >
+              <div className="center-v" style={{ gap: 18, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.18)",
+                    display: "grid",
+                    placeItems: "center",
+                    border: "2px solid rgba(255,255,255,0.35)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Avatar name={child?.studentName} size="lg" />
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>
+                    {child?.studentName}
+                  </div>
+                  <div
+                    className="center-v"
+                    style={{
+                      gap: 14,
+                      fontSize: 13.5,
+                      color: "rgba(255,255,255,0.88)",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span className="center-v" style={{ gap: 6 }}>
+                      <School size={14} strokeWidth={2} />
+                      {child?.school}
+                    </span>
+                    <span
+                      style={{
+                        width: 4,
+                        height: 4,
+                        borderRadius: "50%",
+                        background: "rgba(255,255,255,0.5)",
+                      }}
+                    />
+                    <span className="center-v" style={{ gap: 6 }}>
+                      <GraduationCap size={14} strokeWidth={2} />
+                      {child?.grade} {child?.className}
+                    </span>
                   </div>
                 </div>
+                {report?.weekStart && (
+                  <div
+                    style={{
+                      background: "rgba(255,255,255,0.15)",
+                      border: "1px solid rgba(255,255,255,0.25)",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <Calendar size={14} />
+                    Week of {report.weekStart}
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* ── Stats Row ── */}
             {report && (
-              <div className="grid grid-4">
-                <StatCard icon={<Clock size={18} />} label="Hours today" value={`${(todayMinutes / 60).toFixed(1)}h`} />
-                <StatCard icon={<TrendingUp size={18} />} label={t("avgHoursPerDay")} value={`${report.avgHoursPerDay}h`} />
+              <div className="grid grid-4 parentDashWide" style={{ gap: 14 }}>
                 <StatCard
-                  icon={report.changePercentVsLastWeek >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                  icon={<Clock size={18} strokeWidth={2} />}
+                  label="Hours today"
+                  value={`${(todayMinutes / 60).toFixed(1)}h`}
+                />
+                <StatCard
+                  icon={<TrendingUp size={18} strokeWidth={2} />}
+                  label={t("avgHoursPerDay")}
+                  value={`${report.avgHoursPerDay}h`}
+                />
+                <StatCard
+                  icon={
+                    report.changePercentVsLastWeek >= 0 ? (
+                      <TrendingUp size={18} strokeWidth={2} />
+                    ) : (
+                      <TrendingDown size={18} strokeWidth={2} />
+                    )
+                  }
                   label={t("changeVsLastWeek")}
                   value={`${report.changePercentVsLastWeek}%`}
                 />
-                <StatCard icon={<BookOpen size={18} />} label={t("mostSpentSubject")} value={report.mostSpentSubject || "-"} />
+                <StatCard
+                  icon={<BookOpen size={18} strokeWidth={2} />}
+                  label={t("mostSpentSubject")}
+                  value={report.mostSpentSubject || "—"}
+                />
               </div>
             )}
 
-            {weekSeries.length > 0 && (
-              <div className="card">
-                <div className="h2">{t("weeklyProgress")}</div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={weekSeries}>
-                    <CartesianGrid vertical={false} stroke="var(--border-soft)" />
-                    <XAxis dataKey="label" fontSize={12} axisLine={false} tickLine={false} />
-                    <YAxis fontSize={12} axisLine={false} tickLine={false} width={32} />
-                    <Tooltip formatter={(v) => [`${v}h`, "Hours"]} />
-                    <Bar dataKey="hours" fill="var(--info)" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            <div className="card">
-              <div className="h2">{t("activities")}</div>
-              {activities.length === 0 ? (
-                <EmptyState icon={<BookOpen size={20} />} title="No activities yet" message="Your child's study activities will show up here once they start logging them." />
-              ) : (
-                <div className="stack" style={{ gap: 12 }}>
-                  {activities.slice(0, 12).map((a) => (
-                    <div key={a.activityId} className="card card-flat" style={{ background: "var(--muted)" }}>
-                      <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
-                        <div className="h3">{a.subjectName}</div>
-                        <div className="center-v" style={{ gap: 6 }}>
-                          <span className="badge">{a.durationMinutes} min</span>
-                          <span className="faint" style={{ fontSize: 12 }}>{a.startDate} · {a.startTime}–{a.endTime}</span>
-                        </div>
+            {/* ── Chart + Activities ── */}
+            <div
+              className="parentDashWide"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1fr)",
+                gap: 20,
+                alignItems: "start",
+              }}
+            >
+              {/* Weekly Progress Chart */}
+              {weekSeries.length > 0 && (
+                <div
+                  className="card"
+                  style={{
+                    padding: "20px 22px",
+                    borderRadius: 16,
+                    border: "1px solid var(--border-soft, #e2e8f0)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div
+                    className="between"
+                    style={{ marginBottom: 16, alignItems: "flex-start" }}
+                  >
+                    <div>
+                      <div className="h2" style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                        {t("weeklyProgress")}
                       </div>
-                      {a.description && <p className="subtitle mt-2">{a.description}</p>}
-
-                      <hr />
-                      <div className="row">
-                        <div className="col">
-                          <div className="label">{t("parentRate")}</div>
-                          <Stars
-                            value={draft[a.activityId]?.pRate || 0}
-                            onChange={(v) => setDraft((p) => ({ ...p, [a.activityId]: { ...p[a.activityId], pRate: v } }))}
-                          />
-                          <textarea
-                            className="textarea mt-2"
-                            placeholder={t("comment")}
-                            value={draft[a.activityId]?.pComment || ""}
-                            onChange={(e) => setDraft((p) => ({ ...p, [a.activityId]: { ...p[a.activityId], pComment: e.target.value } }))}
-                          />
-                          <button
-                            className="btn btn-sm mt-2"
-                            type="button"
-                            onClick={() => saveRating(a.activityId)}
-                            disabled={savingId === a.activityId}
-                          >
-                            {savingId === a.activityId ? "Saving…" : t("save")}
-                          </button>
-                        </div>
-                        <div className="col">
-                          <div className="label">{t("teacherRate")}</div>
-                          {a.tRate ? (
-                            <span className="badge badge-primary"><Star size={11} /> {a.tRate}/5 {a.tComment ? `· "${a.tComment}"` : ""}</span>
-                          ) : (
-                            <span className="faint" style={{ fontSize: 12.5 }}>Not rated yet</span>
-                          )}
-                        </div>
+                      <div className="faint" style={{ fontSize: 12.5, marginTop: 2 }}>
+                        Study hours this week
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={weekSeries} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+                      <CartesianGrid vertical={false} stroke="var(--border-soft, #e2e8f0)" strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="label"
+                        fontSize={12}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#64748b" }}
+                      />
+                      <YAxis
+                        fontSize={12}
+                        axisLine={false}
+                        tickLine={false}
+                        width={36}
+                        tick={{ fill: "#64748b" }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "rgba(37, 99, 235, 0.06)" }}
+                        contentStyle={{
+                          borderRadius: 10,
+                          border: "1px solid #e2e8f0",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                          fontSize: 13,
+                        }}
+                        formatter={(v) => [`${v}h`, "Hours"]}
+                      />
+                      <Bar
+                        dataKey="hours"
+                        fill="#3b82f6"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={42}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               )}
+
+              {/* Recent Activities */}
+              <div
+                className="card"
+                style={{
+                  padding: "20px 22px",
+                  borderRadius: 16,
+                  border: "1px solid var(--border-soft, #e2e8f0)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  maxHeight: 520,
+                  overflow: "auto",
+                }}
+              >
+                <div style={{ marginBottom: 16 }}>
+                  <div className="h2" style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                    {t("activities")}
+                  </div>
+                  <div className="faint" style={{ fontSize: 12.5, marginTop: 2 }}>
+                    Rate and comment on recent study sessions
+                  </div>
+                </div>
+
+                {activities.length === 0 ? (
+                  <EmptyState
+                    icon={<BookOpen size={22} />}
+                    title="No activities yet"
+                    message="Your child's study activities will appear here once they start logging them."
+                  />
+                ) : (
+                  <div className="stack" style={{ gap: 12 }}>
+                    {activities.slice(0, 12).map((a) => (
+                      <div
+                        key={a.activityId}
+                        style={{
+                          background: "var(--muted, #f8fafc)",
+                          border: "1px solid var(--border-soft, #e2e8f0)",
+                          borderRadius: 14,
+                          padding: "14px 16px",
+                        }}
+                      >
+                        {/* Activity header */}
+                        <div className="between" style={{ flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--text, #0f172a)" }}>
+                            {a.subjectName}
+                          </div>
+                          <div className="center-v" style={{ gap: 8 }}>
+                            <span
+                              className="badge"
+                              style={{
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                border: "1px solid #bfdbfe",
+                                fontWeight: 600,
+                                fontSize: 12,
+                              }}
+                            >
+                              {a.durationMinutes} min
+                            </span>
+                            <span className="faint" style={{ fontSize: 12 }}>
+                              {a.startDate} · {a.startTime}–{a.endTime}
+                            </span>
+                          </div>
+                        </div>
+
+                        {a.description && (
+                          <p
+                            className="subtitle"
+                            style={{
+                              margin: "0 0 12px",
+                              fontSize: 13,
+                              color: "#64748b",
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            {a.description}
+                          </p>
+                        )}
+
+                        <div
+                          style={{
+                            height: 1,
+                            background: "var(--border-soft, #e2e8f0)",
+                            margin: "0 0 14px",
+                          }}
+                        />
+
+                        {/* Rating row */}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 16,
+                          }}
+                        >
+                          {/* Parent rating */}
+                          <div>
+                            <div
+                              className="label"
+                              style={{
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.04em",
+                                color: "#64748b",
+                                marginBottom: 6,
+                              }}
+                            >
+                              {t("parentRate")}
+                            </div>
+                            <Stars
+                              value={draft[a.activityId]?.pRate || 0}
+                              onChange={(v) =>
+                                setDraft((p) => ({
+                                  ...p,
+                                  [a.activityId]: { ...p[a.activityId], pRate: v },
+                                }))
+                              }
+                            />
+                            <textarea
+                              className="textarea mt-2"
+                              placeholder={t("comment")}
+                              rows={2}
+                              value={draft[a.activityId]?.pComment || ""}
+                              onChange={(e) =>
+                                setDraft((p) => ({
+                                  ...p,
+                                  [a.activityId]: {
+                                    ...p[a.activityId],
+                                    pComment: e.target.value,
+                                  },
+                                }))
+                              }
+                              style={{
+                                fontSize: 13,
+                                borderRadius: 10,
+                                resize: "vertical",
+                                minHeight: 56,
+                              }}
+                            />
+                            <button
+                              className="btn btn-sm mt-2"
+                              type="button"
+                              onClick={() => saveRating(a.activityId)}
+                              disabled={savingId === a.activityId}
+                              style={{ minWidth: 88 }}
+                            >
+                              {savingId === a.activityId ? "Saving…" : t("save")}
+                            </button>
+                          </div>
+
+                          {/* Teacher rating */}
+                          <div>
+                            <div
+                              className="label"
+                              style={{
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.04em",
+                                color: "#64748b",
+                                marginBottom: 6,
+                              }}
+                            >
+                              {t("teacherRate")}
+                            </div>
+                            {a.tRate ? (
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  background: "#f0fdf4",
+                                  border: "1px solid #bbf7d0",
+                                  color: "#166534",
+                                  borderRadius: 999,
+                                  padding: "5px 10px",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <Star size={12} fill="currentColor" />
+                                {a.tRate}/5
+                                {a.tComment && (
+                                  <span style={{ fontWeight: 500, opacity: 0.9 }}>
+                                    · “{a.tComment}”
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div
+                                className="center-v"
+                                style={{
+                                  gap: 6,
+                                  color: "#94a3b8",
+                                  fontSize: 13,
+                                  marginTop: 4,
+                                }}
+                              >
+                                <MessageSquare size={14} />
+                                Not rated yet
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* hidden printable summary */}
+            {/* Hidden printable summary */}
             <div style={{ display: "none" }}>
               <div ref={reportRef} className="watermarkBox">
                 <div className="watermarkText">{t("watermark")}</div>
                 {report && (
                   <>
                     <div className="badge">Week start: {report.weekStart}</div>
-                    <div><b>{t("mostSpentSubject")}:</b> {report.mostSpentSubject || "-"} ({report.mostSpentHours} h)</div>
-                    <div><b>Least spent subject:</b> {report.leastSpentSubject || "-"} ({report.leastSpentHours} h)</div>
-                    <div><b>{t("avgHoursPerDay")}:</b> {report.avgHoursPerDay}</div>
-                    <div><b>{t("changeVsLastWeek")}:</b> {report.changePercentVsLastWeek}%</div>
+                    <div>
+                      <b>{t("mostSpentSubject")}:</b> {report.mostSpentSubject || "-"} (
+                      {report.mostSpentHours} h)
+                    </div>
+                    <div>
+                      <b>Least spent subject:</b> {report.leastSpentSubject || "-"} (
+                      {report.leastSpentHours} h)
+                    </div>
+                    <div>
+                      <b>{t("avgHoursPerDay")}:</b> {report.avgHoursPerDay}
+                    </div>
+                    <div>
+                      <b>{t("changeVsLastWeek")}:</b> {report.changePercentVsLastWeek}%
+                    </div>
                   </>
                 )}
               </div>

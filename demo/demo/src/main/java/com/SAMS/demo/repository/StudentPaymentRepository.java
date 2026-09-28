@@ -10,4 +10,6 @@ import java.util.List;
 public interface StudentPaymentRepository extends JpaRepository<StudentPayment, Long> {
   List<StudentPayment> findByStudent_StudentIdOrderByCreatedAtDesc(Long studentId);
   long countByStatus(com.SAMS.demo.entity.PaymentStatus status);
+  void deleteAllByStudent_StudentId(Long studentId);
+
 }

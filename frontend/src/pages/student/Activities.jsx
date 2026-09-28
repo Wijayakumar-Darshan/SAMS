@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Clock3, Pencil, X, Star, BookMarked, CloudOff, Play, Square, MessageSquareText, Timer, CheckCircle2 } from "lucide-react";
+import {
+  Clock3,
+  Pencil,
+  X,
+  Star,
+  BookMarked,
+  CloudOff,
+  Play,
+  Square,
+  MessageSquareText,
+  Timer,
+  CheckCircle2,
+  Plus,
+  Calendar,
+} from "lucide-react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
 import { api } from "../../api/client.js";
@@ -7,7 +21,13 @@ import { useToast } from "../../components/Toast.jsx";
 import { useI18n } from "../../i18n/i18n.jsx";
 import { Skeleton, EmptyState, ErrorState, Modal } from "../../components/ui.jsx";
 
-const EMPTY_FORM = { subjectName: "", startDate: "", startTime: "16:00", endTime: "17:00", description: "" };
+const EMPTY_FORM = {
+  subjectName: "",
+  startDate: "",
+  startTime: "16:00",
+  endTime: "17:00",
+  description: "",
+};
 
 function calcDuration(startTime, endTime) {
   const [sh, sm] = startTime.split(":").map(Number);
@@ -22,7 +42,6 @@ function fmtDuration(mins) {
   return h > 0 ? `${h}h ${m > 0 ? m + "m" : ""}`.trim() : `${m}m`;
 }
 
-// Formats a live/actual elapsed-time counter as HH:MM:SS (or MM:SS under an hour).
 function fmtClock(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(s / 3600);
@@ -32,7 +51,6 @@ function fmtClock(totalSeconds) {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 }
 
-// Formats a completed real-time session duration (in seconds) as e.g. "1h 12m" or "48s".
 function fmtActualDuration(totalSeconds) {
   const s = Math.max(0, Math.round(totalSeconds || 0));
   if (s < 60) return `${s}s`;
@@ -47,7 +65,11 @@ function fmtDateHeader(dateStr) {
   const sameDay = (a, b) => a.toDateString() === b.toDateString();
   if (sameDay(d, today)) return "Today";
   if (sameDay(d, yest)) return "Yesterday";
-  return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export default function Activities() {
@@ -64,17 +86,21 @@ export default function Activities() {
   const [editing, setEditing] = useState(null);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false); // mobile-friendly toggle
 
-  // ---- Live study-session timer + post-session feedback ----
+  // Live study-session timer + post-session feedback
   const [now, setNow] = useState(Date.now());
   const [startingId, setStartingId] = useState(null);
-  const [stopTarget, setStopTarget] = useState(null); // activity being stopped
+  const [stopTarget, setStopTarget] = useState(null);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackError, setFeedbackError] = useState("");
   const [submittingStop, setSubmittingStop] = useState(false);
   const tickRef = useRef(null);
 
-  const hasRunningSession = useMemo(() => items.some((a) => a.status === "IN_PROGRESS"), [items]);
+  const hasRunningSession = useMemo(
+    () => items.some((a) => a.status === "IN_PROGRESS"),
+    [items]
+  );
 
   useEffect(() => {
     if (!hasRunningSession) return undefined;
@@ -114,7 +140,6 @@ export default function Activities() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -125,7 +150,8 @@ export default function Activities() {
     if (!form.startDate) e.startDate = t("startDate") + " is required";
     if (!form.startTime) e.startTime = "Required";
     if (!form.endTime) e.endTime = "Required";
-    if (form.startTime && form.endTime && duration <= 0) e.endTime = "End time must be after start time";
+    if (form.startTime && form.endTime && duration <= 0)
+      e.endTime = "End time must be after start time";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -144,6 +170,7 @@ export default function Activities() {
       }
       setEditing(null);
       setForm(EMPTY_FORM);
+      setShowForm(false);
       await load();
     } catch (err) {
       toast.show(err?.data?.message || "Save failed. Please try again.", "error");
@@ -160,35 +187,49 @@ export default function Activities() {
       startDate: a.startDate,
       startTime: a.startTime,
       endTime: a.endTime,
-      description: a.description || ""
+      description: a.description || "",
     });
-    if (window.innerWidth < 900) {
-      document.getElementById("activity-form-card")?.scrollIntoView({ behavior: "smooth" });
-    }
+    setShowForm(true);
+    setTimeout(() => {
+      document.getElementById("activity-form-card")?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }, 50);
   }
 
   function cancelEdit() {
     setEditing(null);
     setErrors({});
     setForm(EMPTY_FORM);
+    setShowForm(false);
   }
 
   async function startActivity(a) {
     setStartingId(a.activityId);
     try {
-      const res = await api.post(`/api/student/me/activities/${a.activityId}/start`, {});
-      // Optimistic local update so the timer starts ticking instantly.
+      const res = await api.post(
+        `/api/student/me/activities/${a.activityId}/start`,
+        {}
+      );
       setItems((prev) =>
         prev.map((it) =>
           it.activityId === a.activityId
-            ? { ...it, status: "IN_PROGRESS", actualStartAt: res?.actualStartAt || new Date().toISOString(), actualEndAt: null }
+            ? {
+                ...it,
+                status: "IN_PROGRESS",
+                actualStartAt: res?.actualStartAt || new Date().toISOString(),
+                actualEndAt: null,
+              }
             : it
         )
       );
       setNow(Date.now());
       toast.show("Timer started — good luck with your study session!", "success");
     } catch (err) {
-      toast.show(err?.data?.message || "Couldn't start the timer. Please try again.", "error");
+      toast.show(
+        err?.data?.message || "Couldn't start the timer. Please try again.",
+        "error"
+      );
     } finally {
       setStartingId(null);
     }
@@ -215,9 +256,10 @@ export default function Activities() {
     }
     setSubmittingStop(true);
     try {
-      const res = await api.post(`/api/student/me/activities/${stopTarget.activityId}/stop`, {
-        feedback: feedbackText.trim()
-      });
+      const res = await api.post(
+        `/api/student/me/activities/${stopTarget.activityId}/stop`,
+        { feedback: feedbackText.trim() }
+      );
       setItems((prev) =>
         prev.map((it) =>
           it.activityId === stopTarget.activityId
@@ -225,8 +267,9 @@ export default function Activities() {
                 ...it,
                 status: "COMPLETED",
                 actualEndAt: new Date().toISOString(),
-                actualDurationSeconds: res?.actualDurationSeconds ?? it.actualDurationSeconds,
-                studentFeedback: feedbackText.trim()
+                actualDurationSeconds:
+                  res?.actualDurationSeconds ?? it.actualDurationSeconds,
+                studentFeedback: feedbackText.trim(),
               }
             : it
         )
@@ -235,7 +278,10 @@ export default function Activities() {
       setStopTarget(null);
       setFeedbackText("");
     } catch (err) {
-      toast.show(err?.data?.message || "Couldn't save the session. Please try again.", "error");
+      toast.show(
+        err?.data?.message || "Couldn't save the session. Please try again.",
+        "error"
+      );
     } finally {
       setSubmittingStop(false);
     }
@@ -251,51 +297,92 @@ export default function Activities() {
   }, [items]);
 
   return (
-    <Layout title={t("activities")} subtitle={items.length ? `${items.length} logged` : undefined}>
+    <Layout
+      title={t("activities")}
+      subtitle={items.length ? `${items.length} logged` : undefined}
+    >
       <TrialGate blocked={blocked} message={blockMsg}>
-        <div className="row" style={{ alignItems: "flex-start" }}>
-          <div className="col" style={{ flex: "0 1 380px" }} id="activity-form-card">
-            <div className="card card-hover" style={{ position: "sticky", top: 84 }}>
-              <div className="between mb-2">
-                <div className="h2" style={{ marginBottom: 0 }}>
+        <div className="activities-page">
+          {/* ===== Header + Add Button ===== */}
+          <div className="activities-header">
+            <div>
+              <h2 className="h2" style={{ margin: 0 }}>
+                {t("yourActivities")}
+              </h2>
+              <p className="subtitle" style={{ marginTop: 4 }}>
+                Plan, start and track your study sessions
+              </p>
+            </div>
+            <button
+              className="btn btn-accent"
+              onClick={() => {
+                setEditing(null);
+                setForm(EMPTY_FORM);
+                setErrors({});
+                setShowForm(true);
+              }}
+            >
+              <Plus size={16} />
+              {t("createActivity")}
+            </button>
+          </div>
+
+          {/* ===== Create / Edit Form ===== */}
+          {(showForm || editing) && (
+            <div className="card activity-form-card" id="activity-form-card">
+              <div className="between mb-3">
+                <div className="h2" style={{ margin: 0 }}>
                   {editing ? t("editActivity") : t("createActivity")}
                 </div>
-                {editing && (
-                  <button className="btn-ghost btn-icon" type="button" onClick={cancelEdit} aria-label={t("cancel")}>
-                    <X size={16} />
-                  </button>
-                )}
+                <button
+                  className="btn-ghost btn-icon"
+                  type="button"
+                  onClick={cancelEdit}
+                  aria-label={t("cancel")}
+                >
+                  <X size={18} />
+                </button>
               </div>
 
               <form onSubmit={submit} noValidate>
-                <div className="field">
-                  <label className="label">{t("subjectName")}</label>
-                  <input
-                    className={"input" + (errors.subjectName ? " has-error" : "")}
-                    value={form.subjectName}
-                    onChange={(e) => set("subjectName", e.target.value)}
-                    placeholder="e.g. Mathematics"
-                  />
-                  {errors.subjectName && <div className="field-error">{errors.subjectName}</div>}
-                </div>
-
-                <div className="field">
-                  <label className="label">{t("startDate")}</label>
-                  <input
-                    className={"input" + (errors.startDate ? " has-error" : "")}
-                    type="date"
-                    value={form.startDate}
-                    onChange={(e) => set("startDate", e.target.value)}
-                  />
-                  {errors.startDate && <div className="field-error">{errors.startDate}</div>}
-                </div>
-
-                <div className="row">
-                  <div className="col field" style={{ minWidth: 120 }}>
-                    <label className="label">{t("startTime")}</label>
-                    <input className="input" type="time" value={form.startTime} onChange={(e) => set("startTime", e.target.value)} />
+                <div className="form-grid">
+                  <div className="field">
+                    <label className="label">{t("subjectName")}</label>
+                    <input
+                      className={"input" + (errors.subjectName ? " has-error" : "")}
+                      value={form.subjectName}
+                      onChange={(e) => set("subjectName", e.target.value)}
+                      placeholder="e.g. Mathematics"
+                    />
+                    {errors.subjectName && (
+                      <div className="field-error">{errors.subjectName}</div>
+                    )}
                   </div>
-                  <div className="col field" style={{ minWidth: 120 }}>
+
+                  <div className="field">
+                    <label className="label">{t("startDate")}</label>
+                    <input
+                      className={"input" + (errors.startDate ? " has-error" : "")}
+                      type="date"
+                      value={form.startDate}
+                      onChange={(e) => set("startDate", e.target.value)}
+                    />
+                    {errors.startDate && (
+                      <div className="field-error">{errors.startDate}</div>
+                    )}
+                  </div>
+
+                  <div className="field">
+                    <label className="label">{t("startTime")}</label>
+                    <input
+                      className="input"
+                      type="time"
+                      value={form.startTime}
+                      onChange={(e) => set("startTime", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="field">
                     <label className="label">{t("endTime")}</label>
                     <input
                       className={"input" + (errors.endTime ? " has-error" : "")}
@@ -303,14 +390,17 @@ export default function Activities() {
                       value={form.endTime}
                       onChange={(e) => set("endTime", e.target.value)}
                     />
-                    {errors.endTime && <div className="field-error">{errors.endTime}</div>}
+                    {errors.endTime && (
+                      <div className="field-error">{errors.endTime}</div>
+                    )}
                   </div>
                 </div>
 
-                <div className="field">
+                <div className="field" style={{ marginTop: 12 }}>
                   <label className="label">{t("durationMinutes")}</label>
                   <div className="chip chip-primary">
-                    <Clock3 size={13} /> {duration > 0 ? fmtDuration(duration) : "—"}
+                    <Clock3 size={13} />{" "}
+                    {duration > 0 ? fmtDuration(duration) : "—"}
                   </div>
                 </div>
 
@@ -321,172 +411,256 @@ export default function Activities() {
                     value={form.description}
                     onChange={(e) => set("description", e.target.value)}
                     placeholder="Optional notes about this session"
+                    rows={3}
                   />
                 </div>
 
-                <div className="row" style={{ gap: 8 }}>
-                  <button className="btn btn-accent btn-block" type="submit" disabled={saving}>
+                <div className="form-actions">
+                  <button
+                    className="btn btn-accent"
+                    type="submit"
+                    disabled={saving}
+                  >
                     {saving ? "Saving…" : editing ? t("update") : t("save")}
                   </button>
-                  {editing && (
-                    <button type="button" className="btn btn-outline" onClick={cancelEdit}>
-                      {t("cancel")}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={cancelEdit}
+                  >
+                    {t("cancel")}
+                  </button>
                 </div>
               </form>
             </div>
-          </div>
+          )}
 
-          <div className="col" style={{ flex: "1 1 480px" }}>
-            <div className="card">
-              <div className="h2">{t("yourActivities")}</div>
-
-              {loading ? (
-                <div className="stack">
-                  <Skeleton height={16} width="30%" />
-                  <Skeleton height={60} radius={12} />
-                  <Skeleton height={60} radius={12} />
-                  <Skeleton height={60} radius={12} />
-                </div>
-              ) : error ? (
-                <ErrorState icon={<CloudOff size={22} />} title={t("couldntLoad")} onRetry={load} retryLabel={t("tryAgain")} />
-              ) : items.length === 0 ? (
-                <EmptyState
-                  icon={<BookMarked size={22} />}
-                  title={t("noActivityYet")}
-                  message={t("noActivityYetMsg")}
-                />
-              ) : (
-                <div>
-                  {grouped.map(([date, dayItems]) => (
-                    <div key={date}>
-                      <div className="day-divider">{fmtDateHeader(date)}</div>
-                      {dayItems.map((a) => {
-                        const status = a.status || "PLANNED";
-                        const isRunning = status === "IN_PROGRESS";
-                        const isDone = status === "COMPLETED";
-                        const elapsedSeconds = isRunning && a.actualStartAt ? (now - new Date(a.actualStartAt).getTime()) / 1000 : 0;
-                        return (
-                          <div className={"timeline-item" + (isRunning ? " timeline-item-live" : "")} key={a.activityId}>
-                            <div className="timeline-time">
-                              {a.startTime?.slice(0, 5)}–{a.endTime?.slice(0, 5)}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <div className="between" style={{ marginBottom: 4 }}>
-                                <div className="h3">{a.subjectName}</div>
-                                {!isRunning && (
-                                  <button
-                                    className="btn-ghost btn-icon"
-                                    type="button"
-                                    onClick={() => startEdit(a)}
-                                    aria-label={t("editActivity")}
-                                    title={t("editActivity")}
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                )}
-                              </div>
-                              <div className="center-v" style={{ flexWrap: "wrap", gap: 6 }}>
-                                <span className="badge">
-                                  <Clock3 size={11} /> {t("plannedTime")}: {fmtDuration(a.durationMinutes)}
-                                </span>
-                                {isDone && a.actualDurationSeconds != null && (
-                                  <span className="badge badge-success">
-                                    <CheckCircle2 size={11} /> {t("actualTime")}: {fmtActualDuration(a.actualDurationSeconds)}
-                                  </span>
-                                )}
-                                {a.tRate ? (
-                                  <span className="badge badge-primary">
-                                    <Star size={11} /> {t("teacherRate")}: {a.tRate}/5
-                                  </span>
-                                ) : null}
-                                {a.pRate ? (
-                                  <span className="badge badge-accent">
-                                    <Star size={11} /> {t("parentRate")}: {a.pRate}/5
-                                  </span>
-                                ) : null}
-                              </div>
-                              {a.description && <p className="subtitle mt-2">{a.description}</p>}
-
-                              {/* ---- Live timer / start-stop controls ---- */}
-                              <div className="mt-2">
-                                {status === "PLANNED" && (
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-accent"
-                                    onClick={() => startActivity(a)}
-                                    disabled={startingId === a.activityId || hasRunningSession}
-                                    title={hasRunningSession ? "Finish your current session first" : undefined}
-                                  >
-                                    <Play size={13} /> {startingId === a.activityId ? "…" : t("startSession")}
-                                  </button>
-                                )}
-
-                                {isRunning && (
-                                  <div className="live-timer">
-                                    <span className="live-dot" aria-hidden="true" />
-                                    <Timer size={14} />
-                                    <span className="live-clock">{fmtClock(elapsedSeconds)}</span>
-                                    <span className="faint" style={{ fontSize: 11.5 }}>{t("liveSession")}</span>
-                                    <button type="button" className="btn btn-sm btn-danger" onClick={() => openStopModal(a)}>
-                                      <Square size={12} /> {t("stopSession")}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              {isDone && a.studentFeedback && (
-                                <div className="student-note-box mt-2">
-                                  <MessageSquareText size={13} />
-                                  <span>{a.studentFeedback}</span>
-                                </div>
-                              )}
-
-                              {(a.tComment || a.pComment) && (
-                                <p className="faint mt-1" style={{ fontSize: 12.5 }}>
-                                  {a.tComment ? `"${a.tComment}"` : ""} {a.pComment ? `"${a.pComment}"` : ""}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* ===== Content ===== */}
+          {loading ? (
+            <div className="activity-grid">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} height={180} radius={16} />
+              ))}
             </div>
-          </div>
+          ) : error ? (
+            <ErrorState
+              icon={<CloudOff size={22} />}
+              title={t("couldntLoad")}
+              onRetry={load}
+              retryLabel={t("tryAgain")}
+            />
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={<BookMarked size={28} />}
+              title={t("noActivityYet")}
+              message={t("noActivityYetMsg")}
+            />
+          ) : (
+            <div className="activities-list">
+              {grouped.map(([date, dayItems]) => (
+                <div key={date} className="day-section">
+                  <div className="day-header">
+                    <Calendar size={16} />
+                    <span>{fmtDateHeader(date)}</span>
+                  </div>
+
+                  <div className="activity-grid">
+                    {dayItems.map((a) => {
+                      const status = a.status || "PLANNED";
+                      const isRunning = status === "IN_PROGRESS";
+                      const isDone = status === "COMPLETED";
+                      const elapsedSeconds =
+                        isRunning && a.actualStartAt
+                          ? (now - new Date(a.actualStartAt).getTime()) / 1000
+                          : 0;
+
+                      return (
+                        <div
+                          key={a.activityId}
+                          className={`activity-card ${
+                            isRunning
+                              ? "status-live"
+                              : isDone
+                              ? "status-done"
+                              : "status-planned"
+                          }`}
+                        >
+                          {/* Card Header */}
+                          <div className="card-top">
+                            <div className="subject-name">{a.subjectName}</div>
+                            {!isRunning && (
+                              <button
+                                className="btn-ghost btn-icon"
+                                type="button"
+                                onClick={() => startEdit(a)}
+                                aria-label={t("editActivity")}
+                                title={t("editActivity")}
+                              >
+                                <Pencil size={15} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Time */}
+                          <div className="time-row">
+                            <Clock3 size={14} />
+                            <span>
+                              {a.startTime?.slice(0, 5)} – {a.endTime?.slice(0, 5)}
+                            </span>
+                          </div>
+
+                          {/* Badges */}
+                          <div className="badge-row">
+                            <span className="badge">
+                              <Clock3 size={11} /> Planned:{" "}
+                              {fmtDuration(a.durationMinutes)}
+                            </span>
+
+                            {isDone && a.actualDurationSeconds != null && (
+                              <span className="badge badge-success">
+                                <CheckCircle2 size={11} /> Actual:{" "}
+                                {fmtActualDuration(a.actualDurationSeconds)}
+                              </span>
+                            )}
+
+                            {a.tRate && (
+                              <span className="badge badge-primary">
+                                <Star size={11} /> Teacher: {a.tRate}/5
+                              </span>
+                            )}
+                            {a.pRate && (
+                              <span className="badge badge-accent">
+                                <Star size={11} /> Parent: {a.pRate}/5
+                              </span>
+                            )}
+                          </div>
+
+                          {a.description && (
+                            <p className="desc">{a.description}</p>
+                          )}
+
+                          {/* Live Timer / Actions */}
+                          <div className="card-actions">
+                            {status === "PLANNED" && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-accent"
+                                onClick={() => startActivity(a)}
+                                disabled={
+                                  startingId === a.activityId || hasRunningSession
+                                }
+                                title={
+                                  hasRunningSession
+                                    ? "Finish your current session first"
+                                    : undefined
+                                }
+                              >
+                                <Play size={14} />
+                                {startingId === a.activityId
+                                  ? "…"
+                                  : t("startSession")}
+                              </button>
+                            )}
+
+                            {isRunning && (
+                              <div className="live-timer-box">
+                                <div className="live-info">
+                                  <span className="live-dot" />
+                                  <Timer size={15} />
+                                  <span className="live-clock">
+                                    {fmtClock(elapsedSeconds)}
+                                  </span>
+                                  <span className="live-label">
+                                    {t("liveSession")}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => openStopModal(a)}
+                                >
+                                  <Square size={13} /> {t("stopSession")}
+                                </button>
+                              </div>
+                            )}
+
+                            {isDone && (
+                              <div className="done-badge">
+                                <CheckCircle2 size={15} />
+                                Completed
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Student feedback */}
+                          {isDone && a.studentFeedback && (
+                            <div className="student-note">
+                              <MessageSquareText size={14} />
+                              <span>{a.studentFeedback}</span>
+                            </div>
+                          )}
+
+                          {/* Teacher / Parent comments */}
+                          {(a.tComment || a.pComment) && (
+                            <p className="comments">
+                              {a.tComment && <span>"{a.tComment}"</span>}
+                              {a.pComment && <span>"{a.pComment}"</span>}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
+        {/* ===== Stop Session Modal ===== */}
         <Modal
           open={!!stopTarget}
           onClose={closeStopModal}
           title={t("sessionFeedbackTitle")}
           footer={
             <>
-              <button type="button" className="btn btn-outline" onClick={closeStopModal} disabled={submittingStop}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={closeStopModal}
+                disabled={submittingStop}
+              >
                 {t("cancel")}
               </button>
-              <button type="button" className="btn btn-accent" onClick={confirmStopActivity} disabled={submittingStop}>
+              <button
+                type="button"
+                className="btn btn-accent"
+                onClick={confirmStopActivity}
+                disabled={submittingStop}
+              >
                 {submittingStop ? "Saving…" : t("finishSession")}
               </button>
             </>
           }
         >
           {stopTarget && (
-            <div className="stack" style={{ gap: 10 }}>
-              <div className="center-v" style={{ gap: 8, flexWrap: "wrap" }}>
+            <div className="stack" style={{ gap: 12 }}>
+              <div className="modal-chips">
                 <span className="chip chip-primary">
                   <Timer size={13} /> {stopTarget.subjectName}
                 </span>
                 <span className="chip chip-primary">
                   <Clock3 size={13} />{" "}
-                  {fmtClock(stopTarget.actualStartAt ? (now - new Date(stopTarget.actualStartAt).getTime()) / 1000 : 0)}
+                  {fmtClock(
+                    stopTarget.actualStartAt
+                      ? (now - new Date(stopTarget.actualStartAt).getTime()) / 1000
+                      : 0
+                  )}
                 </span>
               </div>
-              <p className="subtitle" style={{ marginTop: 0 }}>{t("sessionFeedbackSubtitle")}</p>
+              <p className="subtitle" style={{ margin: 0 }}>
+                {t("sessionFeedbackSubtitle")}
+              </p>
               <div className="field" style={{ marginBottom: 0 }}>
                 <textarea
                   className={"textarea" + (feedbackError ? " has-error" : "")}
@@ -499,7 +673,9 @@ export default function Activities() {
                   }}
                   placeholder={t("sessionFeedbackPlaceholder")}
                 />
-                {feedbackError && <div className="field-error">{feedbackError}</div>}
+                {feedbackError && (
+                  <div className="field-error">{feedbackError}</div>
+                )}
               </div>
             </div>
           )}

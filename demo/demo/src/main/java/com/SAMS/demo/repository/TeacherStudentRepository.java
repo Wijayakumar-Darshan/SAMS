@@ -17,4 +17,7 @@ public interface TeacherStudentRepository extends JpaRepository<TeacherStudent, 
   @Query("select ts.student.studentId from TeacherStudent ts where ts.teacher.teacherId = :teacherId")
   List<Long> findStudentIdsByTeacherId(@Param("teacherId") Long teacherId);
   Optional<TeacherStudent> findFirstByStudent_StudentIdOrderByLinkedAtDesc(Long studentId);
+  void deleteAllByStudent_StudentId(Long studentId);
+  void deleteAllByTeacher_TeacherId(Long teacherId);
+
 }

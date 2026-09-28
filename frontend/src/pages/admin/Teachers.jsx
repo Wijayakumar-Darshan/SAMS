@@ -13,6 +13,8 @@ import {
   Eye,
   EyeOff,
   Copy,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 import Layout from "../../components/Layout.jsx";
@@ -39,6 +41,8 @@ export default function Teachers() {
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState(false);
   const [query, setQuery] = useState("");
+  const [editingTeacher, setEditingTeacher] = useState(null);
+  const [editForm, setEditForm] = useState(EMPTY_TEACHER);
 
   // OTP visibility per teacherId
   const [otpVisible, setOtpVisible] = useState({}); // { [teacherId]: true/false }
@@ -185,6 +189,36 @@ export default function Teachers() {
   function toggleOtp(teacherId) {
     setOtpVisible((p) => ({ ...p, [teacherId]: !p[teacherId] }));
   }
+  function startEditTeacher(tt) {
+    setEditingTeacher(tt.teacherId);
+    setEditForm({ name: tt.name || "", school: tt.school || "", grade: tt.grade || "", className: tt.className || "", email: tt.email || "", otp: "" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function saveTeacherEdit() {
+    try {
+      await api.put(`/api/admin/teachers/${editingTeacher}`, {
+        name: editForm.name, school: editForm.school, grade: editForm.grade,
+        className: editForm.className, email: editForm.email
+      });
+      toast.show("Teacher updated", "success");
+      setEditingTeacher(null);
+      await loadTeachers();
+    } catch (err) {
+      toast.show(err?.data?.message || "Failed to update teacher", "error");
+    }
+  }
+
+  async function deleteTeacher(teacherId) {
+    if (!window.confirm("Delete this teacher? This cannot be undone.")) return;
+    try {
+      await api.del(`/api/admin/teachers/${teacherId}`);
+      toast.show("Teacher deleted", "success");
+      await loadTeachers();
+    } catch (err) {
+      toast.show(err?.data?.message || "Delete failed. Check related records.", "error");
+    }
+  }
 
   async function copyText(label, value) {
     try {
@@ -206,6 +240,23 @@ export default function Teachers() {
   return (
     <Layout title={t("teachers")} subtitle={`${teachers.length} teachers`}>
       <div className="stack" style={{ gap: 20 }}>
+        {editingTeacher && (
+          <div className="card">
+            <div className="between">
+              <div><div className="h2">Edit teacher</div><p className="subtitle">Update teacher account details.</p></div>
+              <button className="btn btn-outline" onClick={() => setEditingTeacher(null)}>Cancel</button>
+            </div>
+            <div className="crudForm">
+              {["name","email","school","grade","className"].map(k => (
+                <div className="field" key={k}>
+                  <label className="label">{k === "className" ? "Class" : k[0].toUpperCase()+k.slice(1)}</label>
+                  <input className="input" value={editForm[k]} onChange={e=>setEditForm({...editForm,[k]:e.target.value})}/>
+                </div>
+              ))}
+            </div>
+            <button className="btn" onClick={saveTeacherEdit}>Save changes</button>
+          </div>
+        )}
         {/* Top row: Create teacher + School structure */}
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
           {/* Create teacher */}
@@ -612,15 +663,11 @@ export default function Teachers() {
                         </td>
 
                         <td style={{ textAlign: "right" }}>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            type="button"
-                            onClick={() => regenOtpForTeacher(tt.teacherId)}
-                            disabled={regeneratingId === tt.teacherId}
-                            title="Regenerate OTP (also resets passwordSet=false)"
-                          >
-                            <RefreshCw size={14} /> {regeneratingId === tt.teacherId ? "..." : "Regenerate OTP"}
-                          </button>
+                          <div className="center-v" style={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                            <button className="btn btn-outline btn-sm" type="button" onClick={() => startEditTeacher(tt)}><Pencil size={13}/> Edit</button>
+                            <button className="btn btn-outline btn-sm" type="button" onClick={() => regenOtpForTeacher(tt.teacherId)} disabled={regeneratingId === tt.teacherId} title="Regenerate OTP"><RefreshCw size={14} /></button>
+                            <button className="btn btn-danger btn-sm" type="button" onClick={() => deleteTeacher(tt.teacherId)}><Trash2 size={13}/> Delete</button>
+                          </div>
                         </td>
                       </tr>
                     );

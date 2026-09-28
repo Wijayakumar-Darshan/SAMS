@@ -10,7 +10,9 @@ import {
   ArrowRight,
   MonitorPlay,
   Moon,
-  Sun
+  Sun,
+  Zap,
+  Heart
 } from "lucide-react";
 import LanguageSwitch from "../components/LanguageSwitch.jsx";
 import BrandMark from "../components/BrandMark.jsx";
@@ -29,7 +31,7 @@ function FeatureCard({ title, desc, icon: Icon }) {
   return (
     <div className="home-card">
       <div className="home-card-icon">
-        <Icon size={24} />
+        <Icon size={22} strokeWidth={2.2} />
       </div>
       <div className="home-card-title">{title}</div>
       <div className="home-card-desc">{desc}</div>
@@ -41,7 +43,6 @@ export default function Home() {
   const { t } = useI18n();
   const nav = useNavigate();
 
-  // Dark Mode State Management
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem("theme") === "dark";
   });
@@ -59,57 +60,65 @@ export default function Home() {
   return (
     <div className={`home-wrap ${isDark ? "dark" : ""}`}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
         /* === THEME VARIABLES === */
         .home-wrap {
-          --bg-main: #EEF3FC;
+          --bg-main: #F4F7FF;
           --bg-card: #FFFFFF;
-          --bg-card-alt: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-          --bg-header: rgba(255, 255, 255, 0.95);
-          --text-main: #0B1220;
-          --text-muted: #5B657A;
-          --border: #DCE3F0;
+          --bg-card-alt: linear-gradient(165deg, #FFFFFF 0%, #F8FAFF 100%);
+          --bg-header: rgba(255, 255, 255, 0.82);
+          --text-main: #0F172A;
+          --text-muted: #64748B;
+          --border: #E2E8F0;
           
-          --primary: #1D4ED8;
-          --primary-hover: #1741B8;
-          --primary-bg: #EFF4FE;
+          --primary: #2563EB;
+          --primary-hover: #1D4ED8;
+          --primary-soft: #EFF6FF;
+          --accent: #0EA5E9;
+          --accent-soft: #E0F2FE;
+          --success: #10B981;
           
-          --hero-bg: linear-gradient(165deg, #14306B 0%, #0B1F4B 100%);
-          --strip-bg: #1D4ED8;
+          --hero-bg: linear-gradient(145deg, #1E3A8A 0%, #1E40AF 45%, #0F766E 100%);
+          --strip-bg: linear-gradient(135deg, #2563EB 0%, #0EA5E9 100%);
           --strip-text: #FFFFFF;
           
-          --card-shadow: 0 10px 30px -10px rgba(11, 31, 75, 0.1);
+          --card-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.04), 0 10px 24px -6px rgba(15, 23, 42, 0.08);
+          --card-shadow-hover: 0 20px 40px -12px rgba(37, 99, 235, 0.18);
         }
 
         .home-wrap.dark {
-          --bg-main: #0B1121; /* Deep navy/slate */
-          --bg-card: #151F32;
-          --bg-card-alt: linear-gradient(180deg, #151F32 0%, #0F172A 100%);
-          --bg-header: rgba(15, 23, 42, 0.95);
-          --text-main: #F8FAFC;
+          --bg-main: #0B1120;
+          --bg-card: #151E32;
+          --bg-card-alt: linear-gradient(165deg, #151E32 0%, #0F172A 100%);
+          --bg-header: rgba(11, 17, 32, 0.85);
+          --text-main: #F1F5F9;
           --text-muted: #94A3B8;
-          --border: #2A3B54;
+          --border: #1E293B;
           
-          --primary: #3B82F6; /* Lighter blue for dark mode visibility */
+          --primary: #3B82F6;
           --primary-hover: #60A5FA;
-          --primary-bg: #1E293B;
+          --primary-soft: #1E293B;
+          --accent: #38BDF8;
+          --accent-soft: #0F172A;
+          --success: #34D399;
           
-          --hero-bg: linear-gradient(165deg, #090E1A 0%, #04080F 100%);
-          --strip-bg: #151F32;
+          --hero-bg: linear-gradient(145deg, #020617 0%, #0F172A 50%, #0C4A6E 100%);
+          --strip-bg: linear-gradient(135deg, #1E40AF 0%, #0369A1 100%);
           --strip-text: #F8FAFC;
           
-          --card-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+          --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 10px 24px -6px rgba(0, 0, 0, 0.4);
+          --card-shadow-hover: 0 20px 40px -12px rgba(59, 130, 246, 0.25);
         }
 
-        /* === GLOBAL STYLES === */
+        /* === GLOBAL === */
         .home-wrap {
           min-height: 100vh;
           background: var(--bg-main);
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           color: var(--text-main);
           overflow-x: hidden;
-          transition: background 0.3s ease, color 0.3s ease;
+          transition: background 0.35s ease, color 0.35s ease;
         }
 
         /* Header */
@@ -118,15 +127,16 @@ export default function Home() {
           top: 0;
           z-index: 50;
           background: var(--bg-header);
-          backdrop-filter: blur(12px);
+          backdrop-filter: blur(16px) saturate(180%);
+          -webkit-backdrop-filter: blur(16px) saturate(180%);
           border-bottom: 1px solid var(--border);
-          transition: background 0.3s ease, border-color 0.3s ease;
+          transition: background 0.35s ease, border-color 0.35s ease;
         }
 
         .home-header-inner {
-          max-width: 1180px;
+          max-width: 1160px;
           margin: 0 auto;
-          padding: 14px 20px;
+          padding: 12px 20px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -141,36 +151,24 @@ export default function Home() {
           user-select: none;
         }
 
-        .home-logo {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: var(--primary);
-          display: grid;
-          place-items: center;
-          color: #fff;
-          font-family: 'Fraunces', serif;
-          font-weight: 600;
-          font-size: 18px;
-        }
-
         .home-brand-name {
           font-weight: 700;
           color: var(--text-main);
           font-size: 16px;
-          line-height: 1.1;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
         }
 
         .home-brand-sub {
           font-size: 12px;
           color: var(--text-muted);
-          margin-top: 2px;
+          margin-top: 1px;
         }
 
         .home-nav {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 4px;
         }
 
         .home-link {
@@ -178,22 +176,22 @@ export default function Home() {
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
-          padding: 8px 12px;
-          border-radius: 8px;
+          padding: 8px 14px;
+          border-radius: 10px;
           font-weight: 600;
           font-size: 14px;
-          transition: background 0.15s ease, color 0.15s ease;
+          transition: all 0.18s ease;
         }
         
         .home-link:hover {
-          background: var(--primary-bg);
+          background: var(--primary-soft);
           color: var(--primary);
         }
 
         .home-header-actions {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
         }
 
         .theme-toggle {
@@ -204,19 +202,20 @@ export default function Home() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 8px;
-          border-radius: 8px;
-          transition: all 0.15s ease;
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          transition: all 0.18s ease;
         }
         .theme-toggle:hover {
-          background: var(--primary-bg);
+          background: var(--primary-soft);
           color: var(--primary);
         }
 
         /* Buttons */
         .btn {
-          padding: 10px 16px;
-          border-radius: 9px;
+          padding: 10px 18px;
+          border-radius: 12px;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
@@ -224,17 +223,20 @@ export default function Home() {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           border: none;
+          letter-spacing: -0.01em;
         }
 
         .btn-primary {
           background: var(--primary);
           color: #fff;
+          box-shadow: 0 4px 14px -3px rgba(37, 99, 235, 0.45);
         }
         .btn-primary:hover { 
           background: var(--primary-hover); 
-          transform: translateY(-1px); 
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.5);
         }
 
         .btn-outline {
@@ -244,51 +246,67 @@ export default function Home() {
         }
         .btn-outline:hover { 
           border-color: var(--primary); 
-          color: var(--primary); 
+          color: var(--primary);
+          background: var(--primary-soft);
         }
 
         .btn-outline-light {
-          border: 1.5px solid rgba(255,255,255,0.3);
-          background: rgba(255,255,255,0.1);
+          border: 1.5px solid rgba(255,255,255,0.35);
+          background: rgba(255,255,255,0.12);
           color: #fff;
+          backdrop-filter: blur(8px);
         }
-        .btn-outline-light:hover { background: rgba(255,255,255,0.2); }
+        .btn-outline-light:hover { 
+          background: rgba(255,255,255,0.22);
+          border-color: rgba(255,255,255,0.5);
+        }
 
-        /* Hero Section */
+        /* Hero */
         .home-hero {
           position: relative;
           background: var(--hero-bg);
           color: #fff;
           overflow: hidden;
-          padding: 80px 20px;
-          transition: background 0.3s ease;
+          padding: 72px 20px 100px;
+        }
+
+        .home-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: 
+            radial-gradient(ellipse 80% 50% at 20% 40%, rgba(56, 189, 248, 0.25) 0%, transparent 50%),
+            radial-gradient(ellipse 60% 40% at 80% 20%, rgba(16, 185, 129, 0.2) 0%, transparent 45%);
+          pointer-events: none;
         }
 
         .home-hero-inner {
-          max-width: 1180px;
+          max-width: 1160px;
           margin: 0 auto;
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 60px;
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 48px;
           align-items: center;
+          position: relative;
+          z-index: 1;
         }
 
         .home-hero-text h1 {
           font-family: 'Fraunces', serif;
-          font-weight: 500;
-          font-size: 46px;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
+          font-weight: 600;
+          font-size: clamp(34px, 4.2vw, 48px);
+          line-height: 1.12;
+          letter-spacing: -0.025em;
           margin: 0;
-          color: #fff; /* Always white inside dark gradient */
+          color: #fff;
         }
 
         .home-hero-text p {
-          margin: 20px 0 30px;
+          margin: 18px 0 28px;
           font-size: 17px;
-          line-height: 1.6;
-          color: rgba(255,255,255,0.85);
-          max-width: 520px;
+          line-height: 1.65;
+          color: rgba(255,255,255,0.88);
+          max-width: 480px;
         }
 
         .home-hero-cta {
@@ -298,26 +316,26 @@ export default function Home() {
         }
 
         .home-hero-note {
-          margin-top: 20px;
-          font-size: 13px;
-          color: rgba(255,255,255,0.6);
+          margin-top: 22px;
+          font-size: 13.5px;
+          color: rgba(255,255,255,0.7);
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 7px;
         }
 
         .home-hero-image-wrap {
           position: relative;
-          border-radius: 24px;
+          border-radius: 28px;
           overflow: hidden;
-          box-shadow: 0 30px 60px -20px rgba(0,0,0,0.5);
-          border: 1px solid rgba(255,255,255,0.1);
-          transform: perspective(1000px) rotateY(-5deg);
-          transition: transform 0.3s ease;
+          box-shadow: 0 32px 64px -16px rgba(0,0,0,0.45);
+          border: 1px solid rgba(255,255,255,0.15);
+          transform: perspective(1200px) rotateY(-6deg) rotateX(2deg);
+          transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .home-hero-image-wrap:hover {
-          transform: perspective(1000px) rotateY(0deg);
+          transform: perspective(1200px) rotateY(0deg) rotateX(0deg);
         }
 
         .home-hero-image {
@@ -328,107 +346,150 @@ export default function Home() {
           aspect-ratio: 4/3;
         }
 
-        /* Hero Badges (Mini cards) */
+        /* Floating decorative pills on hero image */
+        .hero-float {
+          position: absolute;
+          background: rgba(255,255,255,0.95);
+          color: #0F172A;
+          padding: 10px 14px;
+          border-radius: 14px;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+          animation: float 5s ease-in-out infinite;
+        }
+        .hero-float-1 {
+          top: 18%;
+          left: -12px;
+          animation-delay: 0s;
+        }
+        .hero-float-2 {
+          bottom: 22%;
+          right: -8px;
+          animation-delay: 1.2s;
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+
+        /* Mini badges */
         .home-badges-grid {
-          max-width: 1180px;
-          margin: -40px auto 0;
+          max-width: 1160px;
+          margin: -52px auto 0;
           position: relative;
           z-index: 10;
           padding: 0 20px;
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
+          gap: 18px;
         }
 
         .home-mini {
           background: var(--bg-card);
           border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 20px;
+          border-radius: 18px;
+          padding: 22px 22px 20px;
           box-shadow: var(--card-shadow);
-          transition: background 0.3s ease, border-color 0.3s ease;
+          transition: all 0.25s ease;
+        }
+        .home-mini:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--card-shadow-hover);
+          border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
         }
 
         .home-mini-title {
           font-weight: 700;
           color: var(--text-main);
-          font-size: 15px;
+          font-size: 15.5px;
           margin-bottom: 6px;
+          letter-spacing: -0.01em;
         }
 
         .home-mini-desc {
           font-size: 13.5px;
           color: var(--text-muted);
-          line-height: 1.5;
+          line-height: 1.55;
         }
 
-        /* General Sections */
+        /* Sections */
         .home-section {
-          max-width: 1180px;
+          max-width: 1160px;
           margin: 0 auto;
-          padding: 80px 20px;
+          padding: 72px 20px;
         }
 
         .section-title-wrap {
           text-align: center;
-          margin-bottom: 40px;
+          margin-bottom: 44px;
         }
 
         .section-title {
           font-family: 'Fraunces', serif;
-          font-size: 32px;
-          font-weight: 500;
+          font-size: clamp(26px, 3.2vw, 34px);
+          font-weight: 600;
           color: var(--text-main);
           margin: 0 0 12px 0;
+          letter-spacing: -0.02em;
         }
 
         .section-subtitle {
           font-size: 16px;
           color: var(--text-muted);
-          margin: 0;
-          max-width: 600px;
           margin: 0 auto;
+          max-width: 520px;
+          line-height: 1.55;
         }
 
-        /* Grids & Cards */
+        /* Feature cards */
         .home-grid-3 {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 24px;
+          gap: 22px;
         }
 
         .home-card {
           background: var(--bg-card);
           border: 1.5px solid var(--border);
-          border-radius: 20px;
-          padding: 28px;
-          transition: border-color 0.2s ease, transform 0.2s ease, background 0.3s ease;
+          border-radius: 22px;
+          padding: 28px 26px;
+          transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .home-card:hover {
-          border-color: var(--primary);
-          transform: translateY(-4px);
-          box-shadow: var(--card-shadow);
+          border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+          transform: translateY(-6px);
+          box-shadow: var(--card-shadow-hover);
         }
 
         .home-card-icon {
           width: 48px;
           height: 48px;
-          border-radius: 12px;
-          background: var(--primary-bg);
+          border-radius: 14px;
+          background: var(--primary-soft);
           color: var(--primary);
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 20px;
-          transition: background 0.3s ease, color 0.3s ease;
+          margin-bottom: 18px;
+          transition: all 0.25s ease;
+        }
+        .home-card:hover .home-card-icon {
+          background: var(--primary);
+          color: #fff;
+          transform: scale(1.06);
         }
 
         .home-card-title {
           font-weight: 700;
-          font-size: 18px;
+          font-size: 17.5px;
           color: var(--text-main);
-          margin-bottom: 10px;
+          margin-bottom: 8px;
+          letter-spacing: -0.01em;
         }
 
         .home-card-desc {
@@ -437,28 +498,34 @@ export default function Home() {
           line-height: 1.6;
         }
 
-        /* Roles Section */
+        /* Roles */
         .home-role {
           background: var(--bg-card-alt);
           border: 1.5px solid var(--border);
-          border-radius: 20px;
-          padding: 28px;
-          transition: background 0.3s ease, border-color 0.3s ease;
+          border-radius: 22px;
+          padding: 26px 24px;
+          transition: all 0.28s ease;
+        }
+        .home-role:hover {
+          border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+          transform: translateY(-4px);
+          box-shadow: var(--card-shadow-hover);
         }
 
         .home-role-top {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
 
         .home-role-title {
           font-family: 'Fraunces', serif;
-          font-weight: 500;
-          font-size: 22px;
+          font-weight: 600;
+          font-size: 21px;
           color: var(--text-main);
           margin: 0;
+          letter-spacing: -0.015em;
         }
 
         .home-role-badge {
@@ -467,9 +534,14 @@ export default function Home() {
           justify-content: center;
           width: 44px;
           height: 44px;
-          border-radius: 12px;
-          background: var(--primary-bg);
+          border-radius: 13px;
+          background: var(--primary-soft);
           color: var(--primary);
+          transition: all 0.25s ease;
+        }
+        .home-role:hover .home-role-badge {
+          background: var(--primary);
+          color: #fff;
         }
 
         .home-role-desc {
@@ -478,34 +550,45 @@ export default function Home() {
           line-height: 1.6;
         }
 
-        /* Call to Action Strip */
+        /* CTA Strip */
         .home-strip {
-          margin-top: 60px;
+          margin-top: 56px;
           background: var(--strip-bg);
-          border: 1px solid var(--border);
           border-radius: 24px;
-          padding: 40px;
+          padding: 36px 40px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 20px;
+          gap: 24px;
           color: var(--strip-text);
-          box-shadow: var(--card-shadow);
-          transition: background 0.3s ease;
+          box-shadow: 0 16px 40px -12px rgba(37, 99, 235, 0.4);
+          position: relative;
+          overflow: hidden;
+        }
+        .home-strip::after {
+          content: "";
+          position: absolute;
+          top: -40%;
+          right: -10%;
+          width: 280px;
+          height: 280px;
+          background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+          pointer-events: none;
         }
 
         .home-strip h3 {
           font-family: 'Fraunces', serif;
-          font-size: 26px;
-          font-weight: 500;
-          margin: 0 0 8px 0;
+          font-size: 25px;
+          font-weight: 600;
+          margin: 0 0 6px 0;
           color: var(--strip-text);
+          letter-spacing: -0.015em;
         }
 
         .home-strip p {
           margin: 0;
-          opacity: 0.85;
+          opacity: 0.9;
           font-size: 15px;
         }
 
@@ -513,37 +596,36 @@ export default function Home() {
         .about-card {
           background: var(--bg-card);
           border: 1.5px solid var(--border);
-          border-radius: 24px;
-          padding: 48px;
+          border-radius: 28px;
+          padding: 48px 40px;
           text-align: center;
-          transition: background 0.3s ease, border-color 0.3s ease;
+          box-shadow: var(--card-shadow);
         }
 
         .about-card p {
           color: var(--text-muted);
           font-size: 16px;
-          line-height: 1.8;
-          max-width: 800px;
-          margin: 0 auto 16px auto;
+          line-height: 1.75;
+          max-width: 720px;
+          margin: 0 auto 14px auto;
         }
 
         .legalNote {
           font-size: 12.5px;
           color: var(--text-muted);
-          opacity: 0.8;
-          margin-top: 24px;
+          opacity: 0.75;
+          margin-top: 28px;
         }
 
         /* Footer */
         .home-footer {
           background: var(--bg-card);
           border-top: 1px solid var(--border);
-          padding: 30px 20px;
-          transition: background 0.3s ease, border-color 0.3s ease;
+          padding: 28px 20px;
         }
 
         .home-footer-inner {
-          max-width: 1180px;
+          max-width: 1160px;
           margin: 0 auto;
           display: flex;
           align-items: center;
@@ -564,13 +646,16 @@ export default function Home() {
 
         /* Responsive */
         @media (max-width: 960px) {
+          .home-hero {
+            padding: 56px 20px 80px;
+          }
           .home-hero-inner {
             grid-template-columns: 1fr;
             text-align: center;
-            gap: 40px;
+            gap: 36px;
           }
           .home-hero-text p {
-            margin: 20px auto 30px;
+            margin: 18px auto 28px;
           }
           .home-hero-cta {
             justify-content: center;
@@ -578,9 +663,20 @@ export default function Home() {
           .home-hero-note {
             justify-content: center;
           }
+          .home-hero-image-wrap {
+            transform: none;
+            max-width: 480px;
+            margin: 0 auto;
+          }
+          .home-hero-image-wrap:hover {
+            transform: none;
+          }
+          .hero-float {
+            display: none;
+          }
           .home-badges-grid {
             grid-template-columns: 1fr;
-            margin-top: -20px;
+            margin-top: -36px;
           }
           .home-grid-3 {
             grid-template-columns: 1fr;
@@ -591,6 +687,19 @@ export default function Home() {
           .home-strip {
             flex-direction: column;
             text-align: center;
+            padding: 32px 24px;
+          }
+          .about-card {
+            padding: 36px 24px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .home-header-actions .btn-outline {
+            display: none;
+          }
+          .home-hero-text h1 {
+            font-size: 32px;
           }
         }
       `}</style>
@@ -637,7 +746,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="home-hero">
         <div className="home-hero-inner">
           <div className="home-hero-text">
@@ -645,16 +754,24 @@ export default function Home() {
             <p>{t("homeHeroDesc")}</p>
 
             <div className="home-hero-cta">
-              <button className="btn btn-primary" style={{ padding: "12px 24px" }} onClick={() => nav("/login")}>
-                {t("homeCtaLogin")} <ArrowRight size={16} />
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: "13px 26px", fontSize: 15 }} 
+                onClick={() => nav("/login")}
+              >
+                {t("homeCtaLogin")} <ArrowRight size={17} />
               </button>
-              <button className="btn btn-outline-light" style={{ padding: "12px 24px" }} onClick={() => nav("/subscription")}>
+              <button 
+                className="btn btn-outline-light" 
+                style={{ padding: "13px 26px", fontSize: 15 }} 
+                onClick={() => nav("/subscription")}
+              >
                 {t("homeCtaSubscription")}
               </button>
             </div>
 
             <div className="home-hero-note">
-              <ShieldCheck size={14} /> {t("homeHeroNote")}
+              <ShieldCheck size={15} /> {t("homeHeroNote")}
             </div>
           </div>
 
@@ -664,6 +781,12 @@ export default function Home() {
               alt="Students collaborating" 
               className="home-hero-image" 
             />
+            <div className="hero-float hero-float-1">
+              <Zap size={16} color="#2563EB" /> Live classes
+            </div>
+            <div className="hero-float hero-float-2">
+              <Heart size={16} color="#10B981" /> Loved by students
+            </div>
           </div>
         </div>
       </section>
@@ -737,7 +860,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Call to Action Strip */}
+        {/* CTA Strip */}
         <div className="home-strip">
           <div>
             <h3>{t("homeStripTitle")}</h3>
@@ -746,7 +869,11 @@ export default function Home() {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <button 
               className="btn" 
-              style={{ background: isDark ? '#1E293B' : '#fff', color: isDark ? '#fff' : '#1D4ED8', border: 'none' }} 
+              style={{ 
+                background: isDark ? "rgba(255,255,255,0.12)" : "#fff", 
+                color: isDark ? "#fff" : "#1D4ED8",
+                border: isDark ? "1px solid rgba(255,255,255,0.2)" : "none"
+              }} 
               onClick={() => nav("/subscription")}
             >
               {t("subscription")}
@@ -778,7 +905,7 @@ export default function Home() {
             <strong>{t("appName")}</strong> &copy; {new Date().getFullYear()} — {t("footerLine")}
           </div>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn btn-outline" onClick={() => nav("/login")}>
               {t("login")}
             </button>

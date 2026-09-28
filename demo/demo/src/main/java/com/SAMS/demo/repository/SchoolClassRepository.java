@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface SchoolClassRepository extends JpaRepository<SchoolClass, Long> {
   List<SchoolClass> findByGrade_Id(Long gradeId);
+  List<SchoolClass> findByTeacher_TeacherId(Long teacherId);
 }
