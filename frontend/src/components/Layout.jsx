@@ -14,8 +14,13 @@ import {
   LogOut,
   Moon,
   Sun,
-  Calendar
+  Calendar,
+  UserCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
 } from "lucide-react";
+
 import LanguageSwitch from "./LanguageSwitch.jsx";
 import BrandMark from "./BrandMark.jsx";
 import { useAuth } from "../state/AuthContext.jsx";
@@ -32,30 +37,39 @@ function navItems(role, t) {
       { to: "/student/calendar", label: t("calendar"), icon: Calendar },
       { to: "/student/report", label: t("report"), icon: FileBarChart2 },
       { to: "/student/map-teacher", label: t("mapTeacher"), icon: QrCode },
-      { to: "/subscription", label: t("subscription"), icon: CreditCard }
+      { to: "/subscription", label: t("subscription"), icon: CreditCard },
+      { to: "/profile", label: t("profileTitle"), icon: UserCircle },
     ];
   }
+
   if (role === "TEACHER") {
     return [
       { to: "/teacher/dashboard", label: t("dashboard"), icon: LayoutDashboard },
       { to: "/teacher/students", label: t("students"), icon: Users },
       { to: "/teacher/leaderboard", label: t("leaderboard"), icon: Trophy },
-      { to: "/subscription", label: t("subscription"), icon: CreditCard }
+      { to: "/subscription", label: t("subscription"), icon: CreditCard },
+      { to: "/profile", label: t("profileTitle"), icon: UserCircle },
     ];
   }
+
   if (role === "PARENT") {
     return [
       { to: "/parent/dashboard", label: t("dashboard"), icon: LayoutDashboard },
-      { to: "/subscription", label: t("subscription"), icon: CreditCard }
+      { to: "/subscription", label: t("subscription"), icon: CreditCard },
+      { to: "/profile", label: t("profileTitle"), icon: UserCircle },
     ];
   }
+
   if (role === "ADMIN") {
     return [
       { to: "/admin/dashboard", label: t("dashboard"), icon: LayoutDashboard },
       { to: "/admin/teachers", label: t("teachers"), icon: GraduationCap },
-      { to: "/admin/payments", label: t("payments"), icon: Wallet }
+      { to: "/admin/students", label: t("students"), icon: Users },
+      { to: "/admin/payments", label: t("payments"), icon: Wallet },
+      { to: "/profile", label: t("profileTitle"), icon: UserCircle },
     ];
   }
+
   return [];
 }
 
@@ -63,7 +77,7 @@ const ROLE_LABEL = {
   STUDENT: "Student",
   TEACHER: "Teacher",
   PARENT: "Parent",
-  ADMIN: "Administrator"
+  ADMIN: "Administrator",
 };
 
 export default function Layout({ children, title, subtitle, actions }) {
@@ -71,43 +85,88 @@ export default function Layout({ children, title, subtitle, actions }) {
   const { theme, toggleTheme } = useTheme();
   const { t } = useI18n();
   const nav = useNavigate();
+
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const items = useMemo(() => navItems(role, t), [role, t]);
-  const displayName = localStorage.getItem("displayName") || ROLE_LABEL[role] || "";
+
+  const displayName =
+    localStorage.getItem("displayName") || ROLE_LABEL[role] || "";
+
+  const handleMobileClose = () => setMobileOpen(false);
+
+  const handleLogout = async () => {
+    await logout();
+    nav("/login");
+  };
 
   return (
-    <div className="appShell">
-      {mobileOpen && <div className="backdrop" onClick={() => setMobileOpen(false)} />}
+    <div className={"appShell" + (collapsed ? " sidebarCollapsed" : "")}>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="backdrop"
+          onClick={handleMobileClose}
+          aria-hidden="true"
+        />
+      )}
 
-      <aside className={"sidebar " + (mobileOpen ? "mobileOpen" : "")}>
+      {/* ========== Sidebar ========== */}
+      <aside className={"sidebar" + (mobileOpen ? " mobileOpen" : "")}>
+        {/* Brand row */}
         <div className="brand">
           <BrandMark size={34} />
+
           <div className="brand-text">
             <span className="brand-name">{t("appName")}</span>
             <span className="brand-tagline">{t("appTagline")}</span>
           </div>
+
+          {/* Desktop collapse */}
+          <button
+            className="sidebarCollapseBtn"
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+
+          {/* Mobile close */}
+          <button
+            className="sidebarMobileClose"
+            type="button"
+            onClick={handleMobileClose}
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
+        {/* Navigation */}
         <nav className="nav" aria-label="Primary">
-          {items.map((it) => {
-            const Icon = it.icon;
+          {items.map((item) => {
+            const Icon = item.icon;
             return (
               <NavLink
-                key={it.to}
-                to={it.to}
-                className={({ isActive }) => (isActive ? "active" : "")}
-                onClick={() => setMobileOpen(false)}
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => (isActive ? "active" : undefined)}
+                onClick={handleMobileClose}
+                title={item.label}
               >
-                <Icon size={18} />
-                {it.label}
+                <Icon size={18} strokeWidth={2.1} />
+                <span className="nav-label">{item.label}</span>
               </NavLink>
             );
           })}
         </nav>
 
+        {/* Sidebar footer */}
         <div className="sidebar-footer">
-          <Avatar name={displayName} />
+          <Avatar name={displayName} size={34} />
           <div className="sidebar-user">
             <div className="name">{displayName}</div>
             <div className="role">{ROLE_LABEL[role] || ""}</div>
@@ -117,34 +176,35 @@ export default function Layout({ children, title, subtitle, actions }) {
             type="button"
             title={t("logout")}
             aria-label={t("logout")}
-            onClick={async () => {
-              await logout();
-              nav("/login");
-            }}
+            onClick={handleLogout}
           >
             <LogOut size={16} />
           </button>
         </div>
       </aside>
 
+      {/* ========== Main ========== */}
       <div className="content">
-        <div className="topbar">
-          <div className="center-v">
+        {/* Topbar */}
+        <header className="topbar">
+          <div className="topbar-left">
             <button
               className="mobileMenuBtn"
-              onClick={() => setMobileOpen(true)}
               type="button"
+              onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
+              title="Open menu"
             >
               <Menu size={18} />
             </button>
-            <div>
-              {title && <div style={{ fontWeight: 800, fontSize: 15.5, color: "var(--ink)" }}>{title}</div>}
-              {subtitle && <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{subtitle}</div>}
+
+            <div className="topbar-titles">
+              {title && <h1 className="topbar-title">{title}</h1>}
+              {subtitle && <p className="topbar-subtitle">{subtitle}</p>}
             </div>
           </div>
 
-          <div className="center-v">
+          <div className="topbar-right">
             {actions}
             <LanguageSwitch />
             <button
@@ -157,10 +217,119 @@ export default function Layout({ children, title, subtitle, actions }) {
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
-        </div>
+        </header>
 
-        <div className="container">{children}</div>
+        {/* Page body */}
+        <main className="container">{children}</main>
       </div>
+
+      {/* Scoped layout polish */}
+      <style>{`
+        /* ---- Topbar refinements ---- */
+        .topbar-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .topbar-titles {
+          min-width: 0;
+        }
+        .topbar-title {
+          margin: 0;
+          font-size: 15.5px;
+          font-weight: 800;
+          color: var(--ink);
+          letter-spacing: -0.015em;
+          line-height: 1.25;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .topbar-subtitle {
+          margin: 1px 0 0;
+          font-size: 12.5px;
+          color: var(--text-muted);
+          line-height: 1.3;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .topbar-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        /* ---- Mobile close button (only visible in drawer) ---- */
+        .sidebarMobileClose {
+          display: none;
+          margin-left: auto;
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-muted);
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+        .sidebarMobileClose:hover {
+          background: var(--muted);
+          color: var(--ink);
+        }
+        @media (max-width: 900px) {
+          .sidebarMobileClose {
+            display: inline-flex;
+          }
+          .sidebarCollapseBtn {
+            display: none !important;
+          }
+        }
+
+        /* ---- Nav label (for collapse) ---- */
+        .nav-label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* ---- Collapsed polish ---- */
+        .sidebarCollapsed .nav a {
+          justify-content: center;
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+        .sidebarCollapsed .nav-label {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          border: 0;
+        }
+        .sidebarCollapsed .brand-text {
+          display: none;
+        }
+        .sidebarCollapsed .sidebar-user {
+          display: none;
+        }
+        .sidebarCollapsed .sidebar-footer {
+          justify-content: center;
+        }
+        .sidebarCollapsed .sidebarCollapseBtn {
+          position: static;
+          margin-left: 0;
+        }
+        .sidebarCollapsed .brand {
+          justify-content: center;
+          gap: 0;
+        }
+      `}</style>
     </div>
   );
 }

@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface StudentNotificationRepository extends JpaRepository<StudentNotification, Long> {
   List<StudentNotification> findByStudent_StudentIdOrderByCreatedAtDesc(Long studentId);
+  void deleteAllByStudent_StudentId(Long studentId);
+
 }

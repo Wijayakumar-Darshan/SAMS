@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.*;
@@ -27,6 +28,11 @@ public class AdminController {
   private final SchoolClassRepository classRepo;
   private final StudentPaymentRepository studentPayRepo;
   private final TeacherPaymentRepository teacherPayRepo;
+  private final ActivityRepository activityRepo;
+  private final ActivityLogRepository activityLogRepo;
+  private final TeacherStudentRepository teacherStudentRepo;
+  private final StudentNotificationRepository studentNotifRepo;
+  private final TeacherNotificationRepository teacherNotifRepo;
 
   private final PaymentService paymentService;
   private final NotificationService notificationService;
@@ -41,6 +47,11 @@ public class AdminController {
                          SchoolClassRepository classRepo,
                          StudentPaymentRepository studentPayRepo,
                          TeacherPaymentRepository teacherPayRepo,
+                         ActivityRepository activityRepo,
+                         ActivityLogRepository activityLogRepo,
+                         TeacherStudentRepository teacherStudentRepo,
+                         StudentNotificationRepository studentNotifRepo,
+                         TeacherNotificationRepository teacherNotifRepo,
                          PaymentService paymentService,
                          NotificationService notificationService,
                          BCryptPasswordEncoder encoder,
@@ -52,6 +63,11 @@ public class AdminController {
     this.classRepo = classRepo;
     this.studentPayRepo = studentPayRepo;
     this.teacherPayRepo = teacherPayRepo;
+    this.activityRepo = activityRepo;
+    this.activityLogRepo = activityLogRepo;
+    this.teacherStudentRepo = teacherStudentRepo;
+    this.studentNotifRepo = studentNotifRepo;
+    this.teacherNotifRepo = teacherNotifRepo;
     this.paymentService = paymentService;
     this.notificationService = notificationService;
     this.encoder = encoder;
@@ -60,6 +76,11 @@ public class AdminController {
 
   private String adminEmail(Authentication auth) {
     return ((AuthUser) auth.getPrincipal()).email();
+  }
+
+  @GetMapping("/profile")
+  public Map<String, Object> profile(Authentication auth) {
+    return Map.of("email", adminEmail(auth), "role", "ADMIN", "name", "Administrator");
   }
 
   @GetMapping("/dashboard")
@@ -162,6 +183,134 @@ public class AdminController {
     t.setPassword(null);
     teacherRepo.save(t);
     return Map.of("message", "OTP regenerated", "otp", t.getOtp());
+  }
+
+  // =========================
+  // STUDENTS CRUD
+  // =========================
+
+  public record CreateStudentReq(
+      @NotBlank String name,
+      @Email @NotBlank String email,
+      String password,
+      @NotBlank String guardianName,
+      @NotBlank String school,
+      @NotBlank String grade,
+      @NotBlank String className
+  ) {}
+
+  private Map<String, Object> studentDto(Student s) {
+    Map<String, Object> m = new java.util.LinkedHashMap<>();
+    m.put("studentId", s.getStudentId());
+    m.put("name", s.getName());
+    m.put("email", s.getEmail());
+    m.put("guardianName", s.getGuardianName());
+    m.put("school", s.getSchool());
+    m.put("grade", s.getGrade());
+    m.put("className", s.getClassName());
+    m.put("tierExpDate", s.getTierExpDate() == null ? null : s.getTierExpDate().toString());
+    m.put("teacherId", s.getTeacher() == null ? null : s.getTeacher().getTeacherId());
+    return m;
+  }
+
+  @GetMapping("/students")
+  public List<Map<String, Object>> listStudents() {
+    return studentRepo.findAll().stream().map(this::studentDto).toList();
+  }
+
+  @PostMapping("/students")
+  public Map<String, Object> createStudent(@RequestBody CreateStudentReq req) {
+    String email = req.email().trim().toLowerCase();
+    if (studentRepo.existsByEmail(email)) throw new IllegalArgumentException("Email already exists");
+    Student s = new Student();
+    s.setName(req.name().trim());
+    s.setEmail(email);
+    s.setPassword(encoder.encode(req.password() == null || req.password().isBlank() ? "ChangeMe123!" : req.password()));
+    s.setGuardianName(req.guardianName().trim());
+    s.setSchool(req.school().trim());
+    s.setGrade(req.grade().trim());
+    s.setClassName(req.className().trim());
+    s.setTierExpDate(LocalDate.now(zoneId).plusDays(7));
+    studentRepo.save(s);
+    return studentDto(s);
+  }
+
+  @PutMapping("/students/{studentId}")
+  public Map<String, Object> updateStudent(@PathVariable Long studentId, @RequestBody CreateStudentReq req) {
+    Student s = studentRepo.findById(studentId).orElseThrow();
+    String email = req.email().trim().toLowerCase();
+    if (!email.equalsIgnoreCase(s.getEmail()) && studentRepo.existsByEmail(email)) {
+      throw new IllegalArgumentException("Email already exists");
+    }
+    s.setName(req.name().trim());
+    s.setEmail(email);
+    s.setGuardianName(req.guardianName().trim());
+    s.setSchool(req.school().trim());
+    s.setGrade(req.grade().trim());
+    s.setClassName(req.className().trim());
+    if (req.password() != null && !req.password().isBlank()) s.setPassword(encoder.encode(req.password()));
+    studentRepo.save(s);
+    return studentDto(s);
+  }
+
+  @Transactional
+  @DeleteMapping("/students/{studentId}")
+  public Map<String, Object> deleteStudent(@PathVariable Long studentId) {
+    Student s = studentRepo.findById(studentId).orElseThrow();
+    activityRepo.deleteAllByStudent_StudentId(studentId);
+    activityLogRepo.deleteAllByStudent_StudentId(studentId);
+    studentNotifRepo.deleteAllByStudent_StudentId(studentId);
+    studentPayRepo.deleteAllByStudent_StudentId(studentId);
+    teacherStudentRepo.deleteAllByStudent_StudentId(studentId);
+    studentRepo.delete(s);
+    return Map.of("message", "Student deleted");
+  }
+
+  // =========================
+  // TEACHERS CRUD
+  // =========================
+
+  public record UpdateTeacherReq(
+      @NotBlank String name,
+      @NotBlank String school,
+      @NotBlank String grade,
+      @NotBlank String className,
+      @Email @NotBlank String email
+  ) {}
+
+  @PutMapping("/teachers/{teacherId}")
+  public Map<String, Object> updateTeacher(@PathVariable Long teacherId, @RequestBody UpdateTeacherReq req) {
+    Teacher t = teacherRepo.findById(teacherId).orElseThrow();
+    String email = req.email().trim().toLowerCase();
+    if (!email.equalsIgnoreCase(t.getEmail()) && teacherRepo.existsByEmail(email)) {
+      throw new IllegalArgumentException("Email already exists");
+    }
+    t.setName(req.name().trim());
+    t.setSchool(req.school().trim());
+    t.setGrade(req.grade().trim());
+    t.setClassName(req.className().trim());
+    t.setEmail(email);
+    teacherRepo.save(t);
+    return Map.of("message", "Teacher updated");
+  }
+
+  @Transactional
+  @DeleteMapping("/teachers/{teacherId}")
+  public Map<String, Object> deleteTeacher(@PathVariable Long teacherId) {
+    Teacher t = teacherRepo.findById(teacherId).orElseThrow();
+    studentRepo.findByTeacher_TeacherId(teacherId).forEach(student -> {
+      student.setTeacher(null);
+      studentRepo.save(student);
+    });
+    classRepo.findByTeacher_TeacherId(teacherId).forEach(schoolClass -> {
+      schoolClass.setTeacher(null);
+      classRepo.save(schoolClass);
+    });
+    teacherStudentRepo.deleteAllByTeacher_TeacherId(teacherId);
+    teacherNotifRepo.deleteAllByTeacher_TeacherId(teacherId);
+    teacherPayRepo.deleteAllByTeacher_TeacherId(teacherId);
+    teacherRepo.delete(t);
+    return Map.of("message", "Teacher deleted");
   }
 
   // =========================

@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> {
   Optional<ActivityLog> findByStudent_StudentIdAndWeekStart(Long studentId, LocalDate weekStart);
   List<ActivityLog> findByStudent_StudentIdOrderByWeekStartAsc(Long studentId);
+  void deleteAllByStudent_StudentId(Long studentId);
+
 }

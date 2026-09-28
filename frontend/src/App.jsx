@@ -20,8 +20,10 @@ import ParentDashboard from "./pages/parent/Dashboard.jsx";
 
 import AdminDashboard from "./pages/admin/Dashboard.jsx";
 import AdminTeachers from "./pages/admin/Teachers.jsx";
+import AdminStudents from "./pages/admin/Students.jsx";
 import AdminPayments from "./pages/admin/Payments.jsx";
 import Home from "./pages/Home.jsx";
+import Profile from "./pages/Profile.jsx";
 
 
 function RequireRole({ role, children }) {
@@ -41,6 +43,13 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/subscription" element={<Subscription />} />
+      <Route
+        path="/profile"
+        element={
+          auth.role ? <Profile /> : <Navigate to="/login" replace />
+        }
+      />
+
       <Route path="/admin-login" element={<AdminLogin />} />
       <Route path="/" element={<Home />} />
 
@@ -132,6 +141,14 @@ export default function App() {
         element={
           <RequireRole role="ADMIN">
             <AdminDashboard />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/admin/students"
+        element={
+          <RequireRole role="ADMIN">
+            <AdminStudents />
           </RequireRole>
         }
       />

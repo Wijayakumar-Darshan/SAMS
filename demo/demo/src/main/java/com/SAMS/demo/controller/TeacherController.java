@@ -48,11 +48,32 @@ public TeacherController(TeacherRepository teacherRepo,
 }
 
   private Long me(Authentication auth) {
-    return ((AuthUser) auth.getPrincipal()).userId();
+    if (auth == null || !auth.isAuthenticated()) {
+      throw new SecurityException("Authentication required");
+    }
+
+    Object principal = auth.getPrincipal();
+
+    if (!(principal instanceof AuthUser authUser)) {
+      throw new SecurityException("Invalid authentication principal");
+    }
+
+    if (authUser.userId() == null) {
+      throw new SecurityException("User ID is missing from authentication");
+    }
+
+    return authUser.userId();
   }
 
   private Teacher requireMeTeacher(Authentication auth) {
-    return teacherRepo.findById(me(auth)).orElseThrow();
+    Long teacherId = me(auth);
+
+    return teacherRepo.findById(teacherId)
+            .orElseThrow(() ->
+                    new IllegalStateException(
+                            "Teacher not found for authenticated user ID: " + teacherId
+                    )
+            );
   }
 
   private void requireActiveTrial(Teacher t) {
@@ -62,27 +83,21 @@ public TeacherController(TeacherRepository teacherRepo,
     }
   }
 
-  // @GetMapping("/me/dashboard")
-  // public Map<String, Object> dashboard(Authentication auth) {
-  //   Teacher t = requireMeTeacher(auth);
-  //   requireActiveTrial(t);
+  @GetMapping("/me/profile")
+  public Map<String, Object> profile(Authentication auth) {
+    Teacher t = requireMeTeacher(auth);
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("teacherId", t.getTeacherId());
+    m.put("name", t.getName());
+    m.put("email", t.getEmail());
+    m.put("school", t.getSchool());
+    m.put("grade", t.getGrade());
+    m.put("className", t.getClassName());
+    m.put("mappingCode", t.getMappingCode());
+    m.put("tierExpDate", t.getTierExpDate() == null ? null : t.getTierExpDate().toString());
+    return m;
+  }
 
-  //   LocalDate today = LocalDate.now(zoneId);
-  //   long daysLeft = t.getTierExpDate() == null ? 0 : today.until(t.getTierExpDate()).getDays();
-  //   if (daysLeft < 0) daysLeft = 0;
-
-  //   // Bug fix: "school" was missing here, which made the teacher's QR code
-  //   // (SAMS|<school>|<mappingCode>) always encode an empty school segment.
-  //   return Map.of(
-  //       "teacherName", t.getName(),
-  //       "email", t.getEmail(),
-  //       "mappingCode", t.getMappingCode(),
-  //       "school", t.getSchool() == null ? "" : t.getSchool(),
-  //       "trialExpDate", String.valueOf(t.getTierExpDate()),
-  //       "daysLeft", daysLeft,
-  //       "passwordSet", t.isPasswordSet()
-  //   );
-  // }
 @GetMapping("/me/dashboard")
 public Map<String, Object> dashboard(Authentication auth) {
   Teacher t = requireMeTeacher(auth);

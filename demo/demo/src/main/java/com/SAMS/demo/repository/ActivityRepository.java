@@ -10,4 +10,6 @@ import java.util.List;
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
   List<Activity> findByStudent_StudentIdOrderByStartDateDescStartTimeDesc(Long studentId);
   List<Activity> findByStudent_StudentIdAndStartDateBetween(Long studentId, LocalDate from, LocalDate to);
+  void deleteAllByStudent_StudentId(Long studentId);
+
 }
