@@ -204,6 +204,71 @@ public List<Map<String, Object>> anyStudentActivities(Authentication auth, @Path
       })
       .toList();
 }
+
+  @GetMapping("/me/students/{studentId}/activities")
+  public List<Map<String, Object>> studentActivities(
+          Authentication auth,
+          @PathVariable Long studentId) {
+
+    Teacher t = requireMeTeacher(auth);
+    requireActiveTrial(t);
+
+    if (!teacherStudentRepo.existsByTeacher_TeacherIdAndStudent_StudentId(
+            t.getTeacherId(), studentId)) {
+      throw new SecurityException("Forbidden");
+    }
+
+    return activityRepo
+            .findByStudent_StudentIdOrderByStartDateDescStartTimeDesc(studentId)
+            .stream()
+            .map(a -> {
+              Map<String, Object> m = new LinkedHashMap<>();
+
+              m.put("activityId", a.getActivityId());
+              m.put("subjectName", a.getSubjectName());
+              m.put("startDate", String.valueOf(a.getStartDate()));
+              m.put("startTime", String.valueOf(a.getStartTime()));
+              m.put("endTime", String.valueOf(a.getEndTime()));
+              m.put("durationMinutes", a.getDurationMinutes());
+
+              m.put("description",
+                      a.getDescription() == null ? "" : a.getDescription());
+
+              m.put("tRate", a.gettRate());
+
+              m.put("tComment",
+                      a.gettComment() == null ? "" : a.gettComment());
+
+              m.put("pRate", a.getpRate());
+
+              m.put("pComment",
+                      a.getpComment() == null ? "" : a.getpComment());
+
+              m.put("status",
+                      a.getStatus() == null ? "PLANNED" : a.getStatus());
+
+              m.put("actualStartAt",
+                      a.getActualStartAt() == null
+                              ? null
+                              : a.getActualStartAt().toString());
+
+              m.put("actualEndAt",
+                      a.getActualEndAt() == null
+                              ? null
+                              : a.getActualEndAt().toString());
+
+              m.put("actualDurationSeconds",
+                      a.getActualDurationSeconds());
+
+              m.put("studentFeedback",
+                      a.getStudentFeedback() == null
+                              ? ""
+                              : a.getStudentFeedback());
+
+              return m;
+            })
+            .toList();
+  }
   public record TeacherRateReq(@Min(1) @Max(5) Integer tRate, String tComment) {}
 
   @PutMapping("/me/activities/{activityId}/rate")
