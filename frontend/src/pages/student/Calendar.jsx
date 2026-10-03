@@ -11,7 +11,7 @@ import {
   Clock,
   BookOpen,
   AlignLeft,
-  Coffee
+  Coffee,
 } from "lucide-react";
 
 function pad2(n) {
@@ -40,7 +40,7 @@ function endOfMonth(d) {
 // Monday=0 ... Sunday=6
 function weekdayMon0(d) {
   const js = d.getDay(); // Sun=0 ... Sat=6
-  return (js + 6) % 7;   // Mon=0 ... Sun=6
+  return (js + 6) % 7; // Mon=0 ... Sun=6
 }
 
 function minutesToHoursText(min) {
@@ -88,7 +88,7 @@ export default function Calendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Group activities by date: { "YYYY-MM-DD": [activity, ...] }
+  // Group activities by date
   const byDate = useMemo(() => {
     const map = new Map();
     for (const a of allActivities) {
@@ -96,7 +96,6 @@ export default function Calendar() {
       if (!map.has(day)) map.set(day, []);
       map.get(day).push(a);
     }
-    // sort each day by startTime
     for (const [k, arr] of map.entries()) {
       arr.sort((x, y) => (x.startTime || "").localeCompare(y.startTime || ""));
       map.set(k, arr);
@@ -113,10 +112,8 @@ export default function Calendar() {
     const mStart = startOfMonth(monthCursor);
     const mEnd = endOfMonth(monthCursor);
 
-    // grid starts on Monday
-    const gridStart = addDays(mStart, -weekdayMon0(mStart));
-    // grid ends on Sunday
-    const gridEnd = addDays(mEnd, 6 - weekdayMon0(mEnd));
+    const gridStart = addDays(mStart, -weekdayMon0(mStart)); // Monday start
+    const gridEnd = addDays(mEnd, 6 - weekdayMon0(mEnd)); // Sunday end
 
     const days = [];
     for (let d = new Date(gridStart); d <= gridEnd; d = addDays(d, 1)) {
@@ -125,9 +122,7 @@ export default function Calendar() {
     return days;
   }, [monthCursor]);
 
-  const selectedActivities = useMemo(() => {
-    return byDate.get(selectedDate) || [];
-  }, [byDate, selectedDate]);
+  const selectedActivities = useMemo(() => byDate.get(selectedDate) || [], [byDate, selectedDate]);
 
   const selectedTotalMinutes = useMemo(() => {
     return selectedActivities.reduce((sum, a) => sum + (Number(a.durationMinutes) || 0), 0);
@@ -165,7 +160,6 @@ export default function Calendar() {
           --cal-border-soft: var(--border-soft);
           --cal-bg: var(--surface);
           --cal-hover: var(--surface-hover);
-          --cal-muted: var(--muted);
 
           --cal-primary: var(--primary);
           --cal-primary-50: var(--primary-50);
@@ -173,9 +167,12 @@ export default function Calendar() {
 
           --cal-text: var(--ink);
           --cal-text-muted: var(--text-muted);
-          --cal-text-faint: var(--text-faint);
 
           --cal-radius: var(--radius-lg);
+
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         /* Toolbar */
@@ -191,18 +188,25 @@ export default function Calendar() {
           box-shadow: var(--shadow-xs);
           flex-wrap: wrap;
           gap: 16px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .cal-month-nav {
           display: flex;
           align-items: center;
           gap: 16px;
+          min-width: 0;
         }
         .cal-month-title {
           font-size: 18px;
           font-weight: 800;
           color: var(--cal-text);
-          min-width: 140px;
+          min-width: 0; /* important for small screens */
           text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .cal-icon-btn {
           display: flex;
@@ -216,6 +220,7 @@ export default function Calendar() {
           color: var(--cal-text-muted);
           cursor: pointer;
           transition: all 0.2s ease;
+          flex: 0 0 auto;
         }
         .cal-icon-btn:hover {
           background: var(--cal-hover);
@@ -229,6 +234,9 @@ export default function Calendar() {
           gap: 24px;
           align-items: flex-start;
           flex-wrap: wrap;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .cal-grid-panel {
           flex: 1.5 1 500px;
@@ -237,6 +245,10 @@ export default function Calendar() {
           border-radius: var(--cal-radius);
           padding: 24px;
           box-shadow: var(--shadow-xs);
+          min-width: 0;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .cal-side-panel {
           flex: 1 1 340px;
@@ -247,14 +259,22 @@ export default function Calendar() {
           box-shadow: var(--shadow-xs);
           position: sticky;
           top: 24px;
+          min-width: 0;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
-        /* Calendar Grid Cells */
+        /* Calendar Grid Cells
+           FIX: use minmax(0,1fr) so 7 columns ALWAYS fit (Sunday won't cut off) */
         .cal-weekdays {
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
+          grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: 10px;
           margin-bottom: 12px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .cal-weekday {
           text-align: center;
@@ -263,13 +283,21 @@ export default function Calendar() {
           color: var(--cal-text-muted);
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .cal-grid {
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
+          grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: 10px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
         .cal-cell {
+          min-width: 0; /* critical: allow shrinking inside grid */
           position: relative;
           background: var(--cal-bg);
           border: 1px solid var(--cal-border);
@@ -282,6 +310,7 @@ export default function Calendar() {
           flex-direction: column;
           justify-content: space-between;
           transition: all 0.2s ease;
+          box-sizing: border-box;
         }
         .cal-cell:hover {
           border-color: var(--cal-primary);
@@ -292,7 +321,6 @@ export default function Calendar() {
           opacity: 0.45;
           background: var(--cal-hover);
         }
-        /* FIXED: single dot selector */
         .cal-cell.is-selected {
           border-color: var(--cal-primary);
           background: var(--cal-primary-50);
@@ -312,9 +340,10 @@ export default function Calendar() {
           font-weight: 900;
           font-size: 14px;
           color: var(--cal-text);
+          flex: 0 0 auto;
         }
 
-        /* Badges */
+        /* Badges (prevent overflow in small columns) */
         .cal-pill {
           display: inline-flex;
           align-items: center;
@@ -327,6 +356,12 @@ export default function Calendar() {
           margin-top: 8px;
           width: fit-content;
           border: 1px solid var(--cal-border-soft);
+
+          max-width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .cal-pill.active {
           background: var(--cal-primary-50);
@@ -334,7 +369,7 @@ export default function Calendar() {
           border: 1px solid var(--cal-primary-100);
         }
 
-        /* Schedule / Day Details */
+        /* Day Details */
         .cal-day-header {
           display: flex;
           align-items: center;
@@ -342,6 +377,8 @@ export default function Calendar() {
           margin-bottom: 24px;
           padding-bottom: 16px;
           border-bottom: 1px solid var(--cal-border);
+          gap: 10px;
+          flex-wrap: wrap;
         }
         .cal-day-title {
           font-size: 18px;
@@ -350,6 +387,7 @@ export default function Calendar() {
           display: flex;
           align-items: center;
           gap: 8px;
+          min-width: 0;
         }
         .cal-stat-badge {
           display: inline-flex;
@@ -362,14 +400,11 @@ export default function Calendar() {
           border-radius: 10px;
           font-weight: 900;
           font-size: 13px;
+          flex: 0 0 auto;
         }
 
         /* Activity Cards */
-        .cal-act-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
+        .cal-act-list { display: flex; flex-direction: column; gap: 12px; }
         .cal-act-card {
           background: var(--cal-bg);
           border: 1px solid var(--cal-border);
@@ -378,10 +413,7 @@ export default function Calendar() {
           padding: 16px;
           transition: transform 0.2s ease, border-color 0.2s ease;
         }
-        .cal-act-card:hover {
-          transform: translateX(4px);
-          border-color: var(--cal-primary);
-        }
+        .cal-act-card:hover { transform: translateX(4px); border-color: var(--cal-primary); }
         .cal-act-top {
           display: flex;
           justify-content: space-between;
@@ -397,6 +429,7 @@ export default function Calendar() {
           display: flex;
           align-items: center;
           gap: 6px;
+          min-width: 0;
         }
         .cal-act-time {
           font-size: 12.5px;
@@ -405,6 +438,7 @@ export default function Calendar() {
           align-items: center;
           gap: 6px;
           margin-top: 6px;
+          flex-wrap: wrap;
         }
         .cal-act-desc {
           font-size: 13.5px;
@@ -413,6 +447,7 @@ export default function Calendar() {
           margin-top: 10px;
           padding-top: 10px;
           border-top: 1px dashed var(--cal-border);
+          word-break: break-word;
         }
 
         /* Empty State */
@@ -421,9 +456,48 @@ export default function Calendar() {
           padding: 40px 20px;
           color: var(--cal-text-muted);
         }
-        .cal-empty svg {
-          opacity: 0.35;
-          margin-bottom: 12px;
+        .cal-empty svg { opacity: 0.35; margin-bottom: 12px; }
+
+        /* ===========================
+           MOBILE RESPONSIVE FIXES
+           =========================== */
+        @media (max-width: 900px) {
+          .cal-toolbar {
+            padding: 12px 12px;
+            gap: 12px;
+          }
+          .cal-month-nav { gap: 10px; width: 100%; justify-content: space-between; }
+          .cal-month-title { font-size: 15px; flex: 1; }
+
+          /* stack panels (calendar on top, details below) */
+          .cal-layout { flex-direction: column; gap: 16px; }
+          .cal-grid-panel { padding: 14px; }
+          .cal-side-panel {
+            padding: 14px;
+            position: static;  /* sticky is not good on mobile */
+            top: auto;
+          }
+
+          /* smaller gaps so 7 columns fit */
+          .cal-weekdays, .cal-grid { gap: 6px; }
+
+          /* smaller cells on phone */
+          .cal-cell {
+            min-height: 70px;
+            padding: 8px;
+            border-radius: 12px;
+          }
+          .cal-weekday { font-size: 11px; letter-spacing: 0.2px; }
+          .cal-date-num { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; }
+          .cal-pill { font-size: 10.5px; padding: 3px 7px; margin-top: 6px; }
+        }
+
+        /* extra small phones */
+        @media (max-width: 380px) {
+          .cal-grid-panel, .cal-side-panel { padding: 12px; }
+          .cal-weekdays, .cal-grid { gap: 5px; }
+          .cal-cell { padding: 7px; min-height: 64px; }
+          .cal-month-title { font-size: 14px; }
         }
       `}</style>
 
@@ -473,7 +547,9 @@ export default function Calendar() {
               <div className="cal-grid-panel">
                 <div className="cal-weekdays">
                   {weekdayNames.map((w) => (
-                    <div key={w} className="cal-weekday">{w}</div>
+                    <div key={w} className="cal-weekday">
+                      {w}
+                    </div>
                   ))}
                 </div>
 
@@ -483,6 +559,7 @@ export default function Calendar() {
                     const inThisMonth = d.getMonth() === monthCursor.getMonth();
                     const isToday = iso === toISODate(new Date());
                     const isSelected = iso === selectedDate;
+
                     const acts = byDate.get(iso) || [];
                     const totalMin = acts.reduce((sum, a) => sum + (Number(a.durationMinutes) || 0), 0);
 
@@ -495,7 +572,7 @@ export default function Calendar() {
                           "cal-cell",
                           inThisMonth ? "in-month" : "out-of-month",
                           isSelected ? "is-selected" : "",
-                          isToday ? "is-today" : ""
+                          isToday ? "is-today" : "",
                         ].join(" ")}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -514,7 +591,14 @@ export default function Calendar() {
                           )}
 
                           {acts.length > 0 && (
-                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, fontWeight: 700 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                                marginTop: 4,
+                                fontWeight: 700,
+                              }}
+                            >
                               {minutesToHoursText(totalMin)}
                             </div>
                           )}
@@ -562,9 +646,7 @@ export default function Calendar() {
                             <BookOpen size={16} color="var(--primary)" />
                             {a.subjectName}
                           </div>
-                          <div className="badge">
-                            {a.durationMinutes}m
-                          </div>
+                          <div className="badge">{a.durationMinutes}m</div>
                         </div>
 
                         <div className="cal-act-time">

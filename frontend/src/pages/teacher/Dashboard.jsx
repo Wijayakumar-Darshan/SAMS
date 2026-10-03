@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { Printer, Lock, Users, TrendingUp, AlertTriangle, Clock, CloudOff, CalendarClock } from "lucide-react";
+import {
+  Printer,
+  Lock,
+  Users,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  CloudOff,
+  CalendarClock,
+} from "lucide-react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
 import { api } from "../../api/client.js";
@@ -9,10 +18,62 @@ import { useI18n } from "../../i18n/i18n.jsx";
 import { useAuth } from "../../state/AuthContext.jsx";
 import { StatCard, Skeleton, ErrorState, Avatar } from "../../components/ui.jsx";
 
+/* ✅ Define hook OUTSIDE component + Safari fallback */
+function useMediaQuery(query) {
+  const getMatch = () => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(query).matches;
+  };
+
+  const [matches, setMatches] = useState(getMatch);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+
+    // set initial
+    onChange();
+
+    // modern browsers
+    if (mq.addEventListener) {
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    }
+
+    // old Safari
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, [query]);
+
+  return matches;
+}
+
+/* optional: debug viewport width */
+function useViewportWidth() {
+  const [w, setW] = useState(() => (typeof window === "undefined" ? 0 : window.innerWidth));
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onResize = () => setW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    onResize();
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, []);
+
+  return w;
+}
+
 export default function Dashboard() {
   const { t } = useI18n();
   const toast = useToast();
   const auth = useAuth();
+
   const [data, setData] = useState(null);
   const [students, setStudents] = useState([]);
   const [leaderRows, setLeaderRows] = useState([]);
@@ -24,56 +85,58 @@ export default function Dashboard() {
   const [savingPw, setSavingPw] = useState(false);
   const qrRef = useRef(null);
 
- async function load() {
-  setLoading(true);
-  setBlocked(false);
-  setBlockMsg("");
-  setError(false);
+  // ✅ media queries
+  const isPhone = useMediaQuery("(max-width: 480px)");
+  const isTablet = useMediaQuery("(max-width: 980px)");
+  const statCols = isPhone ? 1 : isTablet ? 2 : 4;
 
-  try {
-    const results = await Promise.allSettled([
-      api.get("/api/teacher/me/dashboard"),
-      api.get("/api/teacher/me/students"),
-      api.get("/api/teacher/leaderboard")
-    ]);
+  // ✅ debug actual viewport width
+  const vw = useViewportWidth();
 
-    const dashRes = results[0];
-    const studsRes = results[1];
-    const lbRes = results[2];
+  async function load() {
+    setLoading(true);
+    setBlocked(false);
+    setBlockMsg("");
+    setError(false);
 
-    // If dashboard itself fails, treat it as page failure
-    if (dashRes.status === "rejected") {
-      const err = dashRes.reason;
-      if (err?.status === 403 && err?.data?.error === "TRIAL_EXPIRED") {
-        setBlocked(true);
-        setBlockMsg(err.data.message);
-        return;
+    try {
+      const results = await Promise.allSettled([
+        api.get("/api/teacher/me/dashboard"),
+        api.get("/api/teacher/me/students"),
+        api.get("/api/teacher/leaderboard"),
+      ]);
+
+      const dashRes = results[0];
+      const studsRes = results[1];
+      const lbRes = results[2];
+
+      if (dashRes.status === "rejected") {
+        const err = dashRes.reason;
+        if (err?.status === 403 && err?.data?.error === "TRIAL_EXPIRED") {
+          setBlocked(true);
+          setBlockMsg(err.data.message);
+          return;
+        }
+        throw err;
       }
-      throw err;
+
+      setData(dashRes.value);
+
+      if (studsRes.status === "fulfilled") setStudents(studsRes.value);
+      else setStudents([]);
+
+      if (lbRes.status === "fulfilled") setLeaderRows(lbRes.value?.rows || []);
+      else setLeaderRows([]);
+    } catch (err) {
+      console.error("Teacher dashboard load failed:", err);
+      setError(true);
+      toast.show(err?.data?.message || "Failed to load dashboard", "error");
+    } finally {
+      setLoading(false);
     }
-
-    // Dashboard success
-    setData(dashRes.value);
-
-    // Students: if fails, just show empty list
-    if (studsRes.status === "fulfilled") setStudents(studsRes.value);
-    else setStudents([]);
-
-    // Leaderboard: if fails, show empty rows but still render dashboard
-    if (lbRes.status === "fulfilled") setLeaderRows(lbRes.value?.rows || []);
-    else setLeaderRows([]);
-
-  } catch (err) {
-    console.error("Teacher dashboard load failed:", err);
-    setError(true);
-    toast.show(err?.data?.message || "Failed to load dashboard", "error");
-  } finally {
-    setLoading(false);
   }
-}
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,7 +146,6 @@ export default function Dashboard() {
     return `SAMS|${data.school || ""}|${data.mappingCode || ""}`;
   }, [data]);
 
-  // Join this teacher's own students with the school leaderboard's real weekly stats.
   const myStudentStats = useMemo(() => {
     const byId = new Map(leaderRows.map((r) => [r.studentId, r]));
     return students.map((s) => ({ ...s, stat: byId.get(s.studentId) }));
@@ -93,7 +155,9 @@ export default function Dashboard() {
   const needAttention = myStudentStats.filter((s) => !s.stat || s.stat.avgHoursPerDay === 0);
   const avgStudyTime =
     activeStudents.length > 0
-      ? (activeStudents.reduce((sum, s) => sum + (s.stat?.avgHoursPerDay || 0), 0) / activeStudents.length).toFixed(1)
+      ? (
+          activeStudents.reduce((sum, s) => sum + (s.stat?.avgHoursPerDay || 0), 0) / activeStudents.length
+        ).toFixed(1)
       : "0.0";
 
   function printQr() {
@@ -155,7 +219,7 @@ export default function Dashboard() {
       <TrialGate blocked={blocked} message={blockMsg}>
         {loading ? (
           <div className="stack">
-            <div className="grid grid-4">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 16 }}>
               <Skeleton height={96} radius={16} />
               <Skeleton height={96} radius={16} />
               <Skeleton height={96} radius={16} />
@@ -169,65 +233,118 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="stack" style={{ gap: 20 }}>
-            <div className="grid grid-4">
-              <StatCard icon={<Users size={18} />} label="Total students" value={students.length} />
-              <StatCard icon={<TrendingUp size={18} />} label="Active this week" value={activeStudents.length} />
-              <StatCard icon={<Clock size={18} />} label="Average study time" value={`${avgStudyTime}h/day`} />
-              <StatCard icon={<AlertTriangle size={18} />} label="Need attention" value={needAttention.length} accent />
-            </div>
+           
 
-            <div className="row" style={{ alignItems: "flex-start" }}>
-              <div className="col card" style={{ flex: "1 1 320px" }}>
+            {/* ✅ Stats grid that MUST respond */}
+           <div className="teacherStatsGrid">
+  <StatCard icon={<Users size={18} />} label="Total students" value={students.length} />
+  <StatCard icon={<TrendingUp size={18} />} label="Active this week" value={activeStudents.length} />
+  <StatCard icon={<Clock size={18} />} label="Average study time" value={`${avgStudyTime}h/day`} />
+  <StatCard icon={<AlertTriangle size={18} />} label="Need attention" value={needAttention.length} accent />
+</div>
+
+            {/* QR + Password */}
+            <div className="row" style={{ alignItems: "flex-start", display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <div className="col card" style={{ flex: "1 1 320px", minWidth: 0 }}>
                 <div className="h2">{t("teacherQrTitle")}</div>
                 <p className="subtitle mb-3">{t("teacherQrMsg")}</p>
-                <div ref={qrRef} style={{ display: "grid", placeItems: "center", background: "#fff", padding: 16, borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
+
+                <div
+                  ref={qrRef}
+                  style={{
+                    display: "grid",
+                    placeItems: "center",
+                    background: "#fff",
+                    padding: 16,
+                    borderRadius: "var(--radius-lg)",
+                    border: "1px solid var(--border)",
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                >
                   <QRCodeCanvas value={qrValue} size={200} includeMargin />
                 </div>
+
                 <div className="stack mt-3" style={{ gap: 4, fontSize: 13.5 }}>
-                  <div className="between"><span className="muted">{t("mappingCode")}</span><strong>{data.mappingCode}</strong></div>
-                  <div className="between"><span className="muted">{t("school")}</span><strong>{data.school || "-"}</strong></div>
+                  <div className="between">
+                    <span className="muted">{t("mappingCode")}</span>
+                    <strong>{data.mappingCode}</strong>
+                  </div>
+                  <div className="between">
+                    <span className="muted">{t("school")}</span>
+                    <strong>{data.school || "-"}</strong>
+                  </div>
                 </div>
+
                 <button className="btn btn-accent btn-block mt-3" type="button" onClick={printQr}>
                   <Printer size={15} /> {t("print")}
                 </button>
               </div>
 
-              <div className="col card" style={{ flex: "1 1 320px" }}>
+              <div className="col card" style={{ flex: "1 1 320px", minWidth: 0 }}>
                 <div className="center-v mb-1" style={{ gap: 8 }}>
                   <CalendarClock size={16} style={{ color: "var(--primary)" }} />
-                  <div className="h2" style={{ marginBottom: 0 }}>{t("trialExpiryDate")}</div>
+                  <div className="h2" style={{ marginBottom: 0 }}>
+                    {t("trialExpiryDate")}
+                  </div>
                 </div>
-                <div className="badge badge-info">{data.trialExpDate} · {data.daysLeft} days left</div>
+                <div className="badge badge-info">
+                  {data.trialExpDate} · {data.daysLeft} days left
+                </div>
 
                 <hr />
 
                 <div className="center-v mb-2" style={{ gap: 8 }}>
                   <Lock size={16} style={{ color: "var(--primary)" }} />
-                  <div className="h2" style={{ marginBottom: 0 }}>{t("changePassword")}</div>
+                  <div className="h2" style={{ marginBottom: 0 }}>
+                    {t("changePassword")}
+                  </div>
                 </div>
+
                 {!auth.teacherPasswordSet && (
-                  <div className="badge badge-warning mb-3">{t("passwordSetRequired")}: {t("setNewPassword")}</div>
+                  <div className="badge badge-warning mb-3">
+                    {t("passwordSetRequired")}: {t("setNewPassword")}
+                  </div>
                 )}
+
                 <div className="field">
                   <label className="label">{t("newPassword")}</label>
-                  <input className="input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" />
+                  <input
+                    className="input"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                  />
                 </div>
+
                 <button className="btn btn-block" type="button" onClick={setPassword} disabled={savingPw}>
                   {savingPw ? "Saving…" : t("save")}
                 </button>
               </div>
             </div>
 
+            {/* Need attention list */}
             {needAttention.length > 0 && (
               <div className="card">
                 <div className="center-v mb-2" style={{ gap: 8 }}>
                   <AlertTriangle size={16} style={{ color: "var(--warning)" }} />
-                  <div className="h2" style={{ marginBottom: 0 }}>Students needing attention</div>
+                  <div className="h2" style={{ marginBottom: 0 }}>
+                    Students needing attention
+                  </div>
                 </div>
                 <p className="subtitle mb-3">These students haven't logged any study activity this week.</p>
+
                 <div className="stack" style={{ gap: 8 }}>
                   {needAttention.slice(0, 6).map((s) => (
-                    <div key={s.studentId} className="between card card-flat" style={{ background: "var(--warning-50)", border: "1px solid var(--warning-100)" }}>
+                    <div
+                      key={s.studentId}
+                      className="between card card-flat"
+                      style={{
+                        background: "var(--warning-50)",
+                        border: "1px solid var(--warning-100)",
+                      }}
+                    >
                       <div className="center-v" style={{ gap: 10 }}>
                         <Avatar name={s.name} size="sm" />
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>

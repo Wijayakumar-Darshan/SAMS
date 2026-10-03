@@ -97,6 +97,47 @@ export default function Report() {
         )
       }
     >
+      <style>{`
+  .report-stats-grid {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .report-stats-grid > * {
+    min-width: 0;
+    max-width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+  }
+
+  /* Mobile: fixed 2 × 2 stats grid */
+  @media (max-width: 768px) {
+    .report-stats-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 12px !important;
+      align-items: stretch;
+    }
+
+    .report-stats-grid > *,
+    .report-stats-grid > * * {
+      min-width: 0;
+    }
+  }
+
+  /* Extra-small phones */
+  @media (max-width: 360px) {
+    .report-stats-grid {
+      gap: 8px !important;
+    }
+
+    .report-stats-grid .stat-card {
+      padding: 10px !important;
+    }
+  }
+`}</style>
       <TrialGate blocked={blocked} message={blockMsg}>
         {loading ? (
           <div className="stack">
@@ -120,7 +161,7 @@ export default function Report() {
           <div ref={printRef} className="watermarkBox">
             <div className="watermarkText">{t("watermark")}</div>
 
-            <div className="grid grid-4 mb-4">
+            <div className="grid grid-4 report-stats-grid mb-4">
               <StatCard icon={<Clock size={18} />} label="Total hours this week" value={`${totalHours.toFixed(1)}h`} />
               <StatCard icon={<Award size={18} />} label={t("avgHoursPerDay")} value={`${report.avgHoursPerDay}h`} />
               <StatCard

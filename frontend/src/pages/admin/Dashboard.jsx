@@ -38,6 +38,46 @@ export default function Dashboard() {
 
   return (
     <Layout title={t("adminDashboard")}>
+      <style>{`
+  /* ✅ Admin stats responsive grid */
+  .admin-stats-grid{
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 16px;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .admin-stats-grid > *{
+    min-width: 0;
+    height: 100%;
+  }
+
+  /* tablet */
+  @media (max-width: 980px){
+    .admin-stats-grid{
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
+  /* phone */
+  @media (max-width: 520px){
+    .admin-stats-grid{
+      grid-template-columns: 1fr !important;
+    }
+  }
+    @media (max-width: 520px){
+  .admin-stats-grid{
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 360px){
+  .admin-stats-grid{
+    grid-template-columns: 1fr !important;
+  }
+}
+`}</style>
       <div className="stack" style={{ gap: 20 }}>
         {loading ? (
           <SkeletonCards count={4} />
@@ -47,12 +87,12 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-4">
-              <StatCard icon={<GraduationCap size={18} />} label="Total teachers" value={data.totalTeachers} />
-              <StatCard icon={<Users size={18} />} label="Total students" value={data.totalStudents} />
-              <StatCard icon={<School size={18} />} label="Schools" value={data.totalSchools} />
-              <StatCard icon={<Wallet size={18} />} label="Pending payments" value={totalPending} accent={totalPending > 0} />
-            </div>
+         <div className="admin-stats-grid">
+  <StatCard icon={<GraduationCap size={18} />} label="Total teachers" value={data.totalTeachers} />
+  <StatCard icon={<Users size={18} />} label="Total students" value={data.totalStudents} />
+  <StatCard icon={<School size={18} />} label="Schools" value={data.totalSchools} />
+  <StatCard icon={<Wallet size={18} />} label="Pending payments" value={totalPending} accent={totalPending > 0} />
+</div>
 
             <div className="grid grid-2">
               <div className="card">

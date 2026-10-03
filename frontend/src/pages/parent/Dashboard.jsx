@@ -20,6 +20,7 @@ import {
   CloudOff,
   Calendar,
   MessageSquare,
+  X,
 } from "lucide-react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
@@ -52,16 +53,23 @@ function buildWeekSeries(activities, weekStartStr) {
 export default function Dashboard() {
   const { t } = useI18n();
   const toast = useToast();
+
   const [blocked, setBlocked] = useState(false);
   const [blockMsg, setBlockMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
   const [child, setChild] = useState(null);
   const [activities, setActivities] = useState([]);
   const [draft, setDraft] = useState({});
   const [report, setReport] = useState(null);
   const [savingId, setSavingId] = useState(null);
+
   const reportRef = useRef(null);
+
+  // ✅ Mobile Activities Popup
+  const isMobile = useMediaQuery("(max-width: 900px)");
+  const [actsOpen, setActsOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -75,10 +83,13 @@ export default function Dashboard() {
         api.get("/api/parent/me/weekly-report"),
       ]);
       setChild(d);
-      setActivities(acts);
+      setActivities(Array.isArray(acts) ? acts : []);
       setReport(rep);
+
       const dd = {};
-      acts.forEach((a) => (dd[a.activityId] = { pRate: a.pRate || 0, pComment: a.pComment || "" }));
+      (acts || []).forEach(
+        (a) => (dd[a.activityId] = { pRate: a.pRate || 0, pComment: a.pComment || "" })
+      );
       setDraft(dd);
     } catch (err) {
       if (err?.status === 403 && err?.data?.error === "TRIAL_EXPIRED") {
@@ -94,10 +105,32 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close popup if leaving mobile
+  useEffect(() => {
+    if (!isMobile) setActsOpen(false);
+  }, [isMobile]);
+
+  // Body scroll lock + ESC close for popup
+  useEffect(() => {
+    if (!actsOpen) return;
+
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKey = (e) => {
+      if (e.key === "Escape") setActsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [actsOpen]);
 
   const weekSeries = useMemo(() => {
     if (!activities.length || !report) return [];
@@ -154,6 +187,185 @@ export default function Dashboard() {
     w.document.close();
   }
 
+  // Reusable Activities List (used in desktop inline + mobile popup)
+  const ActivitiesContent = () => {
+    if (activities.length === 0) {
+      return (
+        <EmptyState
+          icon={<BookOpen size={22} />}
+          title="No activities yet"
+          message="Your child's study activities will appear here once they start logging them."
+        />
+      );
+    }
+
+    return (
+      <div className="stack" style={{ gap: 12 }}>
+        {activities.slice(0, 12).map((a) => (
+          <div
+            key={a.activityId}
+            style={{
+              background: "var(--muted, #f8fafc)",
+              border: "1px solid var(--border-soft, #e2e8f0)",
+              borderRadius: 14,
+              padding: "14px 16px",
+            }}
+          >
+            {/* Activity header */}
+            <div className="between" style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--text, #0f172a)" }}>
+                {a.subjectName}
+              </div>
+              <div className="center-v" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span
+                  className="badge"
+                  style={{
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                    border: "1px solid #bfdbfe",
+                    fontWeight: 600,
+                    fontSize: 12,
+                  }}
+                >
+                  {a.durationMinutes} min
+                </span>
+                <span className="faint" style={{ fontSize: 12 }}>
+                  {a.startDate} · {a.startTime}–{a.endTime}
+                </span>
+              </div>
+            </div>
+
+            {a.description && (
+              <p
+                className="subtitle"
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: 13,
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                {a.description}
+              </p>
+            )}
+
+            <div style={{ height: 1, background: "var(--border-soft, #e2e8f0)", margin: "0 0 14px" }} />
+
+            {/* Rating row */}
+            <div className="pd-rateGrid">
+              {/* Parent rating */}
+              <div>
+                <div
+                  className="label"
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    color: "#64748b",
+                    marginBottom: 6,
+                  }}
+                >
+                  {t("parentRate")}
+                </div>
+
+                <Stars
+                  value={draft[a.activityId]?.pRate || 0}
+                  onChange={(v) =>
+                    setDraft((p) => ({
+                      ...p,
+                      [a.activityId]: { ...p[a.activityId], pRate: v },
+                    }))
+                  }
+                />
+
+                <textarea
+                  className="textarea mt-2"
+                  placeholder={t("comment")}
+                  rows={2}
+                  value={draft[a.activityId]?.pComment || ""}
+                  onChange={(e) =>
+                    setDraft((p) => ({
+                      ...p,
+                      [a.activityId]: {
+                        ...p[a.activityId],
+                        pComment: e.target.value,
+                      },
+                    }))
+                  }
+                  style={{
+                    fontSize: 13,
+                    borderRadius: 10,
+                    resize: "vertical",
+                    minHeight: 56,
+                  }}
+                />
+
+                <button
+                  className="btn btn-sm mt-2"
+                  type="button"
+                  onClick={() => saveRating(a.activityId)}
+                  disabled={savingId === a.activityId}
+                  style={{ minWidth: 88 }}
+                >
+                  {savingId === a.activityId ? "Saving…" : t("save")}
+                </button>
+              </div>
+
+              {/* Teacher rating */}
+              <div>
+                <div
+                  className="label"
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    color: "#64748b",
+                    marginBottom: 6,
+                  }}
+                >
+                  {t("teacherRate")}
+                </div>
+
+                {a.tRate ? (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      color: "#166534",
+                      borderRadius: 999,
+                      padding: "5px 10px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Star size={12} fill="currentColor" />
+                    {a.tRate}/5
+                    {a.tComment && (
+                      <span style={{ fontWeight: 500, opacity: 0.9 }}>
+                        · “{a.tComment}”
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="center-v" style={{ gap: 6, color: "#94a3b8", fontSize: 13, marginTop: 4 }}>
+                    <MessageSquare size={14} />
+                    Not rated yet
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <Layout
       title={t("dashboard")}
@@ -167,17 +379,134 @@ export default function Dashboard() {
         )
       }
     >
+      <style>{`
+        .pd-wrap{
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        /* Stats grid: 4 -> 2 -> 1 */
+        .pd-stats{
+          display: grid !important;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+          gap: 14px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          align-items: stretch;
+        }
+        .pd-stats > *{ min-width: 0; height: 100%; }
+
+        /* Chart + Activities: two columns on desktop, one column on mobile */
+        .pd-main{
+          display: grid;
+          grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+          gap: 20px;
+          align-items: start;
+          width: 100%;
+        }
+        @media (max-width: 900px){
+          .pd-main{ grid-template-columns: 1fr; }
+        }
+
+        /* Header card: spacing adjustments for small screens */
+        @media (max-width: 520px){
+          .pd-hero{ padding: 18px 16px !important; }
+          .pd-heroName{ font-size: 18px !important; }
+        }
+
+        /* Activities panel: desktop scroll box */
+        .pd-acts{
+          max-height: 520px;
+          overflow: auto;
+        }
+        @media (max-width: 900px){
+          .pd-acts{ max-height: none; overflow: visible; }
+        }
+
+        /* Parent/Teacher rating grid inside an activity card */
+        .pd-rateGrid{
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        @media (max-width: 600px){
+          .pd-rateGrid{ grid-template-columns: 1fr; }
+        }
+
+        /* Make long text wrap safely */
+        .pd-acts .between{ flex-wrap: wrap; gap: 8px; }
+        .pd-acts textarea{ width: 100%; box-sizing: border-box; }
+
+        /* ===== Mobile Activities Modal (bottom sheet) ===== */
+        .pd-modalOverlay{
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.55);
+          display: flex;
+          justify-content: center;
+          align-items: flex-end;
+          padding: 12px;
+          z-index: 9999;
+          box-sizing: border-box;
+        }
+        .pd-modal{
+          width: min(720px, 100%);
+          max-height: 85dvh;
+          background: #fff;
+          border: 1px solid var(--border-soft, #e2e8f0);
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+          box-sizing: border-box;
+        }
+        .pd-modalHeader{
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--border-soft, #e2e8f0);
+          box-sizing: border-box;
+        }
+        .pd-modalTitle{
+          font-weight: 800;
+          font-size: 14px;
+          color: #0f172a;
+        }
+        .pd-iconBtn{
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          border: 1px solid var(--border-soft, #e2e8f0);
+          background: #fff;
+          display: grid;
+          place-items: center;
+        }
+        .pd-modalBody{
+          padding: 12px 14px;
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+          max-height: calc(85dvh - 58px);
+          box-sizing: border-box;
+        }
+      `}</style>
+
       <TrialGate blocked={blocked} message={blockMsg}>
         {loading ? (
-          <div className="stack" style={{ gap: 20 }}>
+          <div className="pd-wrap">
             <Skeleton height={120} radius={18} />
-            <div className="grid grid-4 parentDashWide" style={{ gap: 16 }}>
+            <div className="pd-stats">
               <Skeleton height={96} radius={16} />
               <Skeleton height={96} radius={16} />
               <Skeleton height={96} radius={16} />
               <Skeleton height={96} radius={16} />
             </div>
-            <div className="grid" style={{ gridTemplateColumns: "1.1fr 1fr", gap: 20 }}>
+            <div className="pd-main">
               <Skeleton height={280} radius={18} />
               <Skeleton height={280} radius={18} />
             </div>
@@ -192,10 +521,10 @@ export default function Dashboard() {
             />
           </div>
         ) : (
-          <div className="parentDashGrid" style={{ gap: 20 }}>
+          <div className="pd-wrap">
             {/* ── Student Welcome Header ── */}
             <div
-              className="card parentDashWide"
+              className="card pd-hero"
               style={{
                 background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 55%, #3b82f6 100%)",
                 color: "#fff",
@@ -220,10 +549,20 @@ export default function Dashboard() {
                 >
                   <Avatar name={child?.studentName} size="lg" />
                 </div>
+
                 <div style={{ flex: 1, minWidth: 180 }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>
+                  <div
+                    className="pd-heroName"
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 800,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 6,
+                    }}
+                  >
                     {child?.studentName}
                   </div>
+
                   <div
                     className="center-v"
                     style={{
@@ -251,6 +590,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </div>
+
                 {report?.weekStart && (
                   <div
                     style={{
@@ -263,6 +603,7 @@ export default function Dashboard() {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
+                      flexWrap: "wrap",
                     }}
                   >
                     <Calendar size={14} />
@@ -274,7 +615,7 @@ export default function Dashboard() {
 
             {/* ── Stats Row ── */}
             {report && (
-              <div className="grid grid-4 parentDashWide" style={{ gap: 14 }}>
+              <div className="pd-stats">
                 <StatCard
                   icon={<Clock size={18} strokeWidth={2} />}
                   label="Hours today"
@@ -305,15 +646,7 @@ export default function Dashboard() {
             )}
 
             {/* ── Chart + Activities ── */}
-            <div
-              className="parentDashWide"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1fr)",
-                gap: 20,
-                alignItems: "start",
-              }}
-            >
+            <div className="pd-main">
               {/* Weekly Progress Chart */}
               {weekSeries.length > 0 && (
                 <div
@@ -325,10 +658,7 @@ export default function Dashboard() {
                     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                   }}
                 >
-                  <div
-                    className="between"
-                    style={{ marginBottom: 16, alignItems: "flex-start" }}
-                  >
+                  <div className="between" style={{ marginBottom: 16, alignItems: "flex-start" }}>
                     <div>
                       <div className="h2" style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
                         {t("weeklyProgress")}
@@ -338,23 +668,12 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
+
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={weekSeries} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="var(--border-soft, #e2e8f0)" strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="label"
-                        fontSize={12}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#64748b" }}
-                      />
-                      <YAxis
-                        fontSize={12}
-                        axisLine={false}
-                        tickLine={false}
-                        width={36}
-                        tick={{ fill: "#64748b" }}
-                      />
+                      <XAxis dataKey="label" fontSize={12} axisLine={false} tickLine={false} tick={{ fill: "#64748b" }} />
+                      <YAxis fontSize={12} axisLine={false} tickLine={false} width={36} tick={{ fill: "#64748b" }} />
                       <Tooltip
                         cursor={{ fill: "rgba(37, 99, 235, 0.06)" }}
                         contentStyle={{
@@ -365,12 +684,7 @@ export default function Dashboard() {
                         }}
                         formatter={(v) => [`${v}h`, "Hours"]}
                       />
-                      <Bar
-                        dataKey="hours"
-                        fill="#3b82f6"
-                        radius={[6, 6, 0, 0]}
-                        maxBarSize={42}
-                      />
+                      <Bar dataKey="hours" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={42} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -378,14 +692,12 @@ export default function Dashboard() {
 
               {/* Recent Activities */}
               <div
-                className="card"
+                className="card pd-acts"
                 style={{
                   padding: "20px 22px",
                   borderRadius: 16,
                   border: "1px solid var(--border-soft, #e2e8f0)",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                  maxHeight: 520,
-                  overflow: "auto",
                 }}
               >
                 <div style={{ marginBottom: 16 }}>
@@ -397,191 +709,48 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {activities.length === 0 ? (
-                  <EmptyState
-                    icon={<BookOpen size={22} />}
-                    title="No activities yet"
-                    message="Your child's study activities will appear here once they start logging them."
-                  />
-                ) : (
-                  <div className="stack" style={{ gap: 12 }}>
-                    {activities.slice(0, 12).map((a) => (
-                      <div
-                        key={a.activityId}
-                        style={{
-                          background: "var(--muted, #f8fafc)",
-                          border: "1px solid var(--border-soft, #e2e8f0)",
-                          borderRadius: 14,
-                          padding: "14px 16px",
-                        }}
-                      >
-                        {/* Activity header */}
-                        <div className="between" style={{ flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                          <div style={{ fontWeight: 700, fontSize: 14.5, color: "var(--text, #0f172a)" }}>
-                            {a.subjectName}
-                          </div>
-                          <div className="center-v" style={{ gap: 8 }}>
-                            <span
-                              className="badge"
-                              style={{
-                                background: "#eff6ff",
-                                color: "#1d4ed8",
-                                border: "1px solid #bfdbfe",
-                                fontWeight: 600,
-                                fontSize: 12,
-                              }}
-                            >
-                              {a.durationMinutes} min
-                            </span>
-                            <span className="faint" style={{ fontSize: 12 }}>
-                              {a.startDate} · {a.startTime}–{a.endTime}
-                            </span>
-                          </div>
-                        </div>
+                {/* ✅ MOBILE: button opens popup */}
+                {isMobile ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-block"
+                      onClick={() => setActsOpen(true)}
+                      style={{ height: 44, fontWeight: 800, borderRadius: 12 }}
+                    >
+                      {t("activities")} ({Math.min(12, activities.length)}/{activities.length})
+                    </button>
 
-                        {a.description && (
-                          <p
-                            className="subtitle"
-                            style={{
-                              margin: "0 0 12px",
-                              fontSize: 13,
-                              color: "#64748b",
-                              lineHeight: 1.45,
-                            }}
-                          >
-                            {a.description}
-                          </p>
-                        )}
-
+                    {actsOpen && (
+                      <div className="pd-modalOverlay" onClick={() => setActsOpen(false)} role="presentation">
                         <div
-                          style={{
-                            height: 1,
-                            background: "var(--border-soft, #e2e8f0)",
-                            margin: "0 0 14px",
-                          }}
-                        />
-
-                        {/* Rating row */}
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: 16,
-                          }}
+                          className="pd-modal"
+                          onClick={(e) => e.stopPropagation()}
+                          role="dialog"
+                          aria-modal="true"
                         >
-                          {/* Parent rating */}
-                          <div>
-                            <div
-                              className="label"
-                              style={{
-                                fontSize: 11.5,
-                                fontWeight: 600,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.04em",
-                                color: "#64748b",
-                                marginBottom: 6,
-                              }}
-                            >
-                              {t("parentRate")}
-                            </div>
-                            <Stars
-                              value={draft[a.activityId]?.pRate || 0}
-                              onChange={(v) =>
-                                setDraft((p) => ({
-                                  ...p,
-                                  [a.activityId]: { ...p[a.activityId], pRate: v },
-                                }))
-                              }
-                            />
-                            <textarea
-                              className="textarea mt-2"
-                              placeholder={t("comment")}
-                              rows={2}
-                              value={draft[a.activityId]?.pComment || ""}
-                              onChange={(e) =>
-                                setDraft((p) => ({
-                                  ...p,
-                                  [a.activityId]: {
-                                    ...p[a.activityId],
-                                    pComment: e.target.value,
-                                  },
-                                }))
-                              }
-                              style={{
-                                fontSize: 13,
-                                borderRadius: 10,
-                                resize: "vertical",
-                                minHeight: 56,
-                              }}
-                            />
+                          <div className="pd-modalHeader">
+                            <div className="pd-modalTitle">{t("activities")}</div>
                             <button
-                              className="btn btn-sm mt-2"
                               type="button"
-                              onClick={() => saveRating(a.activityId)}
-                              disabled={savingId === a.activityId}
-                              style={{ minWidth: 88 }}
+                              className="pd-iconBtn"
+                              onClick={() => setActsOpen(false)}
+                              aria-label="Close"
                             >
-                              {savingId === a.activityId ? "Saving…" : t("save")}
+                              <X size={18} />
                             </button>
                           </div>
 
-                          {/* Teacher rating */}
-                          <div>
-                            <div
-                              className="label"
-                              style={{
-                                fontSize: 11.5,
-                                fontWeight: 600,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.04em",
-                                color: "#64748b",
-                                marginBottom: 6,
-                              }}
-                            >
-                              {t("teacherRate")}
-                            </div>
-                            {a.tRate ? (
-                              <div
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  background: "#f0fdf4",
-                                  border: "1px solid #bbf7d0",
-                                  color: "#166534",
-                                  borderRadius: 999,
-                                  padding: "5px 10px",
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                <Star size={12} fill="currentColor" />
-                                {a.tRate}/5
-                                {a.tComment && (
-                                  <span style={{ fontWeight: 500, opacity: 0.9 }}>
-                                    · “{a.tComment}”
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div
-                                className="center-v"
-                                style={{
-                                  gap: 6,
-                                  color: "#94a3b8",
-                                  fontSize: 13,
-                                  marginTop: 4,
-                                }}
-                              >
-                                <MessageSquare size={14} />
-                                Not rated yet
-                              </div>
-                            )}
+                          <div className="pd-modalBody">
+                            <ActivitiesContent />
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
+                ) : (
+                  /* ✅ DESKTOP: keep inline list */
+                  <ActivitiesContent />
                 )}
               </div>
             </div>
@@ -594,12 +763,10 @@ export default function Dashboard() {
                   <>
                     <div className="badge">Week start: {report.weekStart}</div>
                     <div>
-                      <b>{t("mostSpentSubject")}:</b> {report.mostSpentSubject || "-"} (
-                      {report.mostSpentHours} h)
+                      <b>{t("mostSpentSubject")}:</b> {report.mostSpentSubject || "-"} ({report.mostSpentHours} h)
                     </div>
                     <div>
-                      <b>Least spent subject:</b> {report.leastSpentSubject || "-"} (
-                      {report.leastSpentHours} h)
+                      <b>Least spent subject:</b> {report.leastSpentSubject || "-"} ({report.leastSpentHours} h)
                     </div>
                     <div>
                       <b>{t("avgHoursPerDay")}:</b> {report.avgHoursPerDay}
@@ -616,4 +783,26 @@ export default function Dashboard() {
       </TrialGate>
     </Layout>
   );
+}
+
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia(query).matches
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(query);
+    const handler = () => setMatches(mq.matches);
+
+    mq.addEventListener?.("change", handler);
+    mq.addListener?.(handler); // Safari fallback
+
+    return () => {
+      mq.removeEventListener?.("change", handler);
+      mq.removeListener?.(handler);
+    };
+  }, [query]);
+
+  return matches;
 }
