@@ -119,6 +119,29 @@ export default function Leaderboard() {
         )
       }
     >
+      <style>{`
+  .lb-wrap{
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Desktop: widen just a little */
+  @media (min-width: 1024px){
+    .lb-wrap{
+      max-width: 1180px;  /* change to 1240px if you want more */
+      margin: 0 auto;
+      padding: 0 12px;    /* keeps it away from edges */
+    }
+  }
+
+  /* Large screens: optionally a bit wider */
+  @media (min-width: 1400px){
+    .lb-wrap{
+      max-width: 1280px;
+    }
+  }
+`}</style>
       <TrialGate blocked={blocked} message={blockMsg}>
         {loading ? (
           <div className="stack">

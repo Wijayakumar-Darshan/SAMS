@@ -1407,3 +1407,220 @@ hr {
   }
   .parentDashGrid { gap: 12px; }
 }
+
+}
+/* Mobile calendar styles (fixed to fit full screen width) */
+.mobcal-wrap {
+  width: 100%;
+  max-width: 100%;
+}
+
+.mobcal-toolbar {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 12px;
+}
+
+.mobcal-nav { display: flex; align-items: center; gap: 10px; }
+.mobcal-title { font-weight: 900; font-size: 14px; min-width: 120px; text-align: center; }
+
+.mobcal-iconbtn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+/* IMPORTANT: minmax(0,1fr) prevents overflow and ensures Sunday fits */
+.mobcal-weekdays,
+.mobcal-grid {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobcal-weekdays {
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.mobcal-weekday {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* CRITICAL: min-width:0 allows cells to shrink inside the grid */
+.mobcal-cell {
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  min-height: 62px;
+  padding: 8px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.mobcal-cell.out { opacity: 0.45; background: var(--surface-hover); }
+.mobcal-cell.selected {
+  border-color: var(--primary);
+  background: var(--primary-50);
+  box-shadow: inset 0 0 0 1px var(--primary-100);
+}
+
+.mobcal-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
+.mobcal-daynum {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: var(--ink);
+  font-size: 13px;
+}
+.mobcal-cell.today .mobcal-daynum { background: var(--primary); color: #fff; }
+
+/* Make pills never force the cell wider than the column */
+.mobcal-pill {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  width: fit-content;
+}
+
+.mobcal-pill.active {
+  background: var(--primary-50);
+  border-color: var(--primary-100);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.mobcal-hours {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Extra squeeze for very small phones */
+@media (max-width: 380px) {
+  .mobcal-weekdays,
+  .mobcal-grid {
+    gap: 6px;
+  }
+  .mobcal-cell {
+    padding: 6px;
+    min-height: 56px;
+    border-radius: 11px;
+  }
+  .mobcal-title {
+    min-width: 96px;
+    font-size: 13px;
+  }
+}
+.teacher-stats-grid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.teacher-stats-grid > *{
+  min-width: 0;
+  height: 100%;
+}
+
+@media (max-width: 980px){
+  .teacher-stats-grid{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px){
+  .teacher-stats-grid{
+    grid-template-columns: 1fr;
+  }
+}
+/* ✅ Stats grid that works on mobile (2 cols when possible, 1 col if too small) */
+.teacherStatsGrid{
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+}
+
+.teacherStatsGrid > *{
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+.rep-stats{
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+}
+.rep-stats > *{
+  min-width: 0;
+  height: 100%;
+}
+/* Allow wrapping badges for long tokens/codes (OTP, mappingCode, etc.) */
+.badge-wrap {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+
+  /* inline-flex badges can still behave wide; make it block-like */
+  display: block !important;
+  max-width: 100% !important;
+}
+@media (max-width: 520px) {
+  .badge-wrap {
+    width: 100% !important;
+  }
+}

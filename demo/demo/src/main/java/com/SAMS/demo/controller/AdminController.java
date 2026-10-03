@@ -376,56 +376,56 @@ public class AdminController {
   // WhatsApp update: include student email and teacher email.
   // =========================
 
-  @GetMapping("/payments/students")
-  public List<Map<String, Object>> studentPayments() {
-    return studentPayRepo.findAll().stream().map(p -> Map.<String, Object>of(
-        "paymentId", p.getId(),
-        "studentId", p.getStudent().getStudentId(),
-        "studentName", p.getStudent().getName(),
-        "studentEmail", p.getStudent().getEmail(),
-        "trialExpDate", String.valueOf(p.getStudent().getTierExpDate()),
-        "status", p.getStatus().name(),
-        "createdAt", p.getCreatedAt().toString()
-    )).toList();
-  }
+  // @GetMapping("/payments/students")
+  // public List<Map<String, Object>> studentPayments() {
+  //   return studentPayRepo.findAll().stream().map(p -> Map.<String, Object>of(
+  //       "paymentId", p.getId(),
+  //       "studentId", p.getStudent().getStudentId(),
+  //       "studentName", p.getStudent().getName(),
+  //       "studentEmail", p.getStudent().getEmail(),
+  //       "trialExpDate", String.valueOf(p.getStudent().getTierExpDate()),
+  //       "status", p.getStatus().name(),
+  //       "createdAt", p.getCreatedAt().toString()
+  //   )).toList();
+  // }
 
-  @GetMapping("/payments/teachers")
-  public List<Map<String, Object>> teacherPayments() {
-    return teacherPayRepo.findAll().stream().map(p -> Map.<String, Object>of(
-        "paymentId", p.getId(),
-        "teacherId", p.getTeacher().getTeacherId(),
-        "teacherName", p.getTeacher().getName(),
-        "teacherEmail", p.getTeacher().getEmail(),
-        "trialExpDate", String.valueOf(p.getTeacher().getTierExpDate()),
-        "status", p.getStatus().name(),
-        "createdAt", p.getCreatedAt().toString()
-    )).toList();
-  }
+  // @GetMapping("/payments/teachers")
+  // public List<Map<String, Object>> teacherPayments() {
+  //   return teacherPayRepo.findAll().stream().map(p -> Map.<String, Object>of(
+  //       "paymentId", p.getId(),
+  //       "teacherId", p.getTeacher().getTeacherId(),
+  //       "teacherName", p.getTeacher().getName(),
+  //       "teacherEmail", p.getTeacher().getEmail(),
+  //       "trialExpDate", String.valueOf(p.getTeacher().getTierExpDate()),
+  //       "status", p.getStatus().name(),
+  //       "createdAt", p.getCreatedAt().toString()
+  //   )).toList();
+  // }
 
   public record ApproveReq(Integer extendMonths) {}
 
-  @PostMapping("/payments/students/{paymentId}/approve")
-  public Map<String, Object> approveStudent(Authentication auth, @PathVariable Long paymentId, @RequestBody(required = false) ApproveReq req) {
-    StudentPayment p = studentPayRepo.findById(paymentId).orElseThrow();
-    Student s = p.getStudent();
+  // @PostMapping("/payments/students/{paymentId}/approve")
+  // public Map<String, Object> approveStudent(Authentication auth, @PathVariable Long paymentId, @RequestBody(required = false) ApproveReq req) {
+  //   StudentPayment p = studentPayRepo.findById(paymentId).orElseThrow();
+  //   Student s = p.getStudent();
 
-    p.setStatus(PaymentStatus.APPROVED);
-    p.setVerifiedBy(adminEmail(auth));
-    p.setVerifiedAt(Instant.now());
-    studentPayRepo.save(p);
+  //   p.setStatus(PaymentStatus.APPROVED);
+  //   p.setVerifiedBy(adminEmail(auth));
+  //   p.setVerifiedAt(Instant.now());
+  //   studentPayRepo.save(p);
 
-    LocalDate newExp = paymentService.applyApprovalExpiryRule(s.getTierExpDate());
-    if (req != null && req.extendMonths() != null && req.extendMonths() != 0) {
-      newExp = newExp.plusMonths(req.extendMonths());
-    }
-    s.setTierExpDate(newExp);
-    studentRepo.save(s);
+  //   LocalDate newExp = paymentService.applyApprovalExpiryRule(s.getTierExpDate());
+  //   if (req != null && req.extendMonths() != null && req.extendMonths() != 0) {
+  //     newExp = newExp.plusMonths(req.extendMonths());
+  //   }
+  //   s.setTierExpDate(newExp);
+  //   studentRepo.save(s);
 
-    // WhatsApp update: success notification to student
-    notificationService.notifyStudent(s, "Payment approved successfully. Your expiry date is now " + newExp + ".");
+  //   // WhatsApp update: success notification to student
+  //   notificationService.notifyStudent(s, "Payment approved successfully. Your expiry date is now " + newExp + ".");
 
-    return Map.of("message", "Approved", "newExpiry", String.valueOf(newExp));
-  }
+  //   return Map.of("message", "Approved", "newExpiry", String.valueOf(newExp));
+  // }
 
   public record RejectReq(@NotBlank String reason) {}
 
@@ -445,26 +445,26 @@ public class AdminController {
     return Map.of("message", "Rejected");
   }
 
-  @PostMapping("/payments/teachers/{paymentId}/approve")
-  public Map<String, Object> approveTeacher(Authentication auth, @PathVariable Long paymentId, @RequestBody(required = false) ApproveReq req) {
-    TeacherPayment p = teacherPayRepo.findById(paymentId).orElseThrow();
-    Teacher t = p.getTeacher();
+  // @PostMapping("/payments/teachers/{paymentId}/approve")
+  // public Map<String, Object> approveTeacher(Authentication auth, @PathVariable Long paymentId, @RequestBody(required = false) ApproveReq req) {
+  //   TeacherPayment p = teacherPayRepo.findById(paymentId).orElseThrow();
+  //   Teacher t = p.getTeacher();
 
-    p.setStatus(PaymentStatus.APPROVED);
-    p.setVerifiedBy(adminEmail(auth));
-    p.setVerifiedAt(Instant.now());
-    teacherPayRepo.save(p);
+  //   p.setStatus(PaymentStatus.APPROVED);
+  //   p.setVerifiedBy(adminEmail(auth));
+  //   p.setVerifiedAt(Instant.now());
+  //   teacherPayRepo.save(p);
 
-    LocalDate newExp = paymentService.applyApprovalExpiryRule(t.getTierExpDate());
-    if (req != null && req.extendMonths() != null && req.extendMonths() != 0) {
-      newExp = newExp.plusMonths(req.extendMonths());
-    }
-    t.setTierExpDate(newExp);
-    teacherRepo.save(t);
+  //   LocalDate newExp = paymentService.applyApprovalExpiryRule(t.getTierExpDate());
+  //   if (req != null && req.extendMonths() != null && req.extendMonths() != 0) {
+  //     newExp = newExp.plusMonths(req.extendMonths());
+  //   }
+  //   t.setTierExpDate(newExp);
+  //   teacherRepo.save(t);
 
-    notificationService.notifyTeacher(t, "Payment approved successfully. Your expiry date is now " + newExp + ".");
-    return Map.of("message", "Approved", "newExpiry", String.valueOf(newExp));
-  }
+  //   notificationService.notifyTeacher(t, "Payment approved successfully. Your expiry date is now " + newExp + ".");
+  //   return Map.of("message", "Approved", "newExpiry", String.valueOf(newExp));
+  // }
 
   @PostMapping("/payments/teachers/{paymentId}/reject")
   public Map<String, Object> rejectTeacher(Authentication auth, @PathVariable Long paymentId, @RequestBody RejectReq req) {
@@ -524,4 +524,138 @@ public class AdminController {
       if (!teacherRepo.existsByMappingCode(code)) return code;
     }
   }
+  // =========================
+// PAYMENTS TABLES (two separate)
+// Include student email and teacher email.
+// =========================
+
+@GetMapping("/payments/students")
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
+public List<Map<String, Object>> studentPayments() {
+  return studentPayRepo.findAll().stream().map(p -> {
+    Map<String, Object> m = new java.util.LinkedHashMap<>();
+    m.put("paymentId", p.getId());
+
+    Student s = p.getStudent();
+    m.put("studentId", s != null ? s.getStudentId() : null);
+    m.put("studentName", s != null ? s.getName() : "(deleted)");
+    m.put("studentEmail", s != null ? s.getEmail() : null);
+    m.put("trialExpDate", s != null && s.getTierExpDate() != null ? s.getTierExpDate().toString() : null);
+
+    m.put("status", p.getStatus() != null ? p.getStatus().name() : "UNKNOWN");
+    m.put("createdAt", p.getCreatedAt() != null ? p.getCreatedAt().toString() : null);
+    m.put("verifiedBy", p.getVerifiedBy()); // optional (safe even if null)
+    m.put("verifiedAt", p.getVerifiedAt() != null ? p.getVerifiedAt().toString() : null);
+    return m;
+  }).toList();
+}
+
+@GetMapping("/payments/teachers")
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
+public List<Map<String, Object>> teacherPayments() {
+  return teacherPayRepo.findAll().stream().map(p -> {
+    Map<String, Object> m = new java.util.LinkedHashMap<>();
+    m.put("paymentId", p.getId());
+
+    Teacher t = p.getTeacher();
+    m.put("teacherId", t != null ? t.getTeacherId() : null);
+    m.put("teacherName", t != null ? t.getName() : "(deleted)");
+    m.put("teacherEmail", t != null ? t.getEmail() : null);
+    m.put("trialExpDate", t != null && t.getTierExpDate() != null ? t.getTierExpDate().toString() : null);
+
+    m.put("status", p.getStatus() != null ? p.getStatus().name() : "UNKNOWN");
+    m.put("createdAt", p.getCreatedAt() != null ? p.getCreatedAt().toString() : null);
+    m.put("verifiedBy", p.getVerifiedBy()); // optional
+    m.put("verifiedAt", p.getVerifiedAt() != null ? p.getVerifiedAt().toString() : null);
+    return m;
+  }).toList();
+}
+//=======
+private LocalDate computeNewExpiry(LocalDate currentExpiry, Integer extendMonths) {
+  LocalDate today = LocalDate.now(zoneId);
+
+  // base date = later of today vs currentExpiry (if current is null/expired, start from today)
+  LocalDate base = (currentExpiry == null || currentExpiry.isBefore(today)) ? today : currentExpiry;
+
+  int months = (extendMonths == null ? 0 : extendMonths);
+
+  // you can decide your default rule here:
+  // Option A: default +1 month even if extendMonths is null/0
+  // Option B: default +0 months and only extend when user enters months
+  //
+  // Your UI suggests "extend" should happen when approving, so default +1:
+  if (months == 0) months = 1;
+
+  return base.plusMonths(months);
+}
+
+@org.springframework.transaction.annotation.Transactional
+@PostMapping("/payments/students/{paymentId}/approve")
+public Map<String, Object> approveStudent(
+    Authentication auth,
+    @PathVariable Long paymentId,
+    @RequestBody(required = false) ApproveReq req
+) {
+  StudentPayment p = studentPayRepo.findById(paymentId).orElseThrow();
+  Student s = p.getStudent();
+
+  p.setStatus(PaymentStatus.APPROVED);
+  p.setVerifiedBy(adminEmail(auth));
+  p.setVerifiedAt(Instant.now());
+  studentPayRepo.save(p);
+
+  LocalDate newExp = computeNewExpiry(s.getTierExpDate(), req == null ? null : req.extendMonths());
+  s.setTierExpDate(newExp);
+  studentRepo.save(s);
+
+  notificationService.notifyStudent(s, "Payment approved successfully. Your expiry date is now " + newExp + ".");
+  return Map.of("message", "Approved", "newExpiry", String.valueOf(newExp));
+}
+
+@org.springframework.transaction.annotation.Transactional
+@PostMapping("/payments/teachers/{paymentId}/approve")
+public Map<String, Object> approveTeacher(
+    Authentication auth,
+    @PathVariable Long paymentId,
+    @RequestBody(required = false) ApproveReq req
+) {
+  TeacherPayment p = teacherPayRepo.findById(paymentId).orElseThrow();
+  Teacher t = p.getTeacher();
+
+  p.setStatus(PaymentStatus.APPROVED);
+  p.setVerifiedBy(adminEmail(auth));
+  p.setVerifiedAt(Instant.now());
+  teacherPayRepo.save(p);
+
+  LocalDate newExp = computeNewExpiry(t.getTierExpDate(), req == null ? null : req.extendMonths());
+  t.setTierExpDate(newExp);
+  teacherRepo.save(t);
+
+  notificationService.notifyTeacher(t, "Payment approved successfully. Your expiry date is now " + newExp + ".");
+  return Map.of("message", "Approved", "newExpiry", String.valueOf(newExp));
+}
+// DTO for the request
+public record SetExpiryReq(@NotNull java.time.LocalDate expiryDate) {}
+
+@Transactional
+@PutMapping("/students/{studentId}/expiry")
+public Map<String, Object> setStudentExpiry(@PathVariable Long studentId, @RequestBody SetExpiryReq req) {
+    Student s = studentRepo.findById(studentId).orElseThrow();
+    s.setTierExpDate(req.expiryDate());
+    studentRepo.save(s);
+    
+    notificationService.notifyStudent(s, "Your account expiry date has been manually adjusted to " + req.expiryDate());
+    return Map.of("message", "Expiry date set to " + req.expiryDate());
+}
+
+@Transactional
+@PutMapping("/teachers/{teacherId}/expiry")
+public Map<String, Object> setTeacherExpiry(@PathVariable Long teacherId, @RequestBody SetExpiryReq req) {
+    Teacher t = teacherRepo.findById(teacherId).orElseThrow();
+    t.setTierExpDate(req.expiryDate());
+    teacherRepo.save(t);
+    
+    notificationService.notifyTeacher(t, "Your account expiry date has been manually adjusted to " + req.expiryDate());
+    return Map.of("message", "Expiry date set to " + req.expiryDate());
+}
 }

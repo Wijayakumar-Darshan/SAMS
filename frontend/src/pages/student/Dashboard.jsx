@@ -1,16 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import {
-  Clock,
-  TrendingUp,
-  BookOpen,
-  Flame,
-  PlusCircle,
-  FileBarChart2,
-  QrCode,
-  CloudOff
-} from "lucide-react";
+import { Clock, TrendingUp, BookOpen, Flame, PlusCircle, FileBarChart2, QrCode, CloudOff } from "lucide-react";
 import Layout from "../../components/Layout.jsx";
 import TrialGate from "../../components/TrialGate.jsx";
 import { api } from "../../api/client.js";
@@ -87,7 +78,7 @@ export default function Dashboard() {
       const [dash, week, acts] = await Promise.all([
         api.get("/api/student/me/dashboard"),
         api.get("/api/student/me/weekly-report"),
-        api.get("/api/student/me/activities")
+        api.get("/api/student/me/activities"),
       ]);
       setData(dash);
       setWeekly(week);
@@ -120,7 +111,9 @@ export default function Dashboard() {
   const todayMinutes = useMemo(() => {
     if (!activities) return 0;
     const today = toDateStr(new Date());
-    return activities.filter((a) => a.startDate === today).reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+    return activities
+      .filter((a) => a.startDate === today)
+      .reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
   }, [activities]);
 
   const streak = useMemo(() => (activities ? computeStreak(activities) : 0), [activities]);
@@ -129,7 +122,9 @@ export default function Dashboard() {
     if (!weekly?.hoursBySubject) return [];
     const entries = Object.entries(weekly.hoursBySubject);
     const max = Math.max(1, ...entries.map(([, h]) => h));
-    return entries.sort((a, b) => b[1] - a[1]).map(([name, hours]) => ({ name, hours, pct: (hours / max) * 100 }));
+    return entries
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, hours]) => ({ name, hours, pct: (hours / max) * 100 }));
   }, [weekly]);
 
   const hasAnyActivity = (activities?.length || 0) > 0;
@@ -138,7 +133,7 @@ export default function Dashboard() {
     { label: t("logActivity"), icon: PlusCircle, onClick: () => nav("/student/activities"), primary: true },
     { label: t("viewReport"), icon: FileBarChart2, onClick: () => nav("/student/report") },
     { label: t("leaderboard"), icon: TrendingUp, onClick: () => nav("/student/leaderboard") },
-    { label: t("findMyTeacher"), icon: QrCode, onClick: () => nav("/student/map-teacher") }
+    { label: t("findMyTeacher"), icon: QrCode, onClick: () => nav("/student/map-teacher") },
   ];
 
   return (
@@ -245,19 +240,20 @@ export default function Dashboard() {
         }
         .db-action-btn.primary:hover { background: #1741B8; }
 
-        /* ---- Stat cards ---- */
+        /* ---- Stat cards (FIXED mobile responsiveness) ---- */
         .db-stats-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          /* auto-fit makes it adapt smoothly at any screen width */
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
           gap: 16px;
           align-items: stretch;
         }
-        .db-stats-grid > * { height: 100%; }
-        @media (max-width: 980px) {
-          .db-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 480px) {
-          .db-stats-grid { grid-template-columns: 1fr; }
+        /* prevent long text inside cards from forcing horizontal overflow */
+        .db-stats-grid > * { height: 100%; min-width: 0; }
+
+        /* On very small phones, reduce gap a bit */
+        @media (max-width: 360px) {
+          .db-stats-grid { gap: 12px; }
         }
 
         /* ---- Charts row ---- */
