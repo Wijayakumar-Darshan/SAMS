@@ -3,6 +3,8 @@
 target/
 uploads/
 *.log
+*.sql
+.env.*
 .env
 application-production.properties
 
@@ -16,3 +18,8 @@ dist/
 .idea/
 .vscode/
 *.iml
+
+
+
+
+

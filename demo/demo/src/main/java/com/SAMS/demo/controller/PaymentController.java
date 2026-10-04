@@ -1,92 +1,132 @@
 package com.SAMS.demo.controller;
 
-import com.SAMS.demo.entity.*;
-import com.SAMS.demo.repository.*;
+import com.SAMS.demo.entity.StudentPayment;
+import com.SAMS.demo.entity.TeacherPayment;
+import com.SAMS.demo.entity.UserRole;
+import com.SAMS.demo.repository.StudentPaymentRepository;
+import com.SAMS.demo.repository.TeacherPaymentRepository;
 import com.SAMS.demo.security.AuthUser;
 import com.SAMS.demo.service.PaymentService;
+import com.SAMS.demo.storage.PaymentSlipStorageService;
 
-import jakarta.transaction.Transactional;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.*;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/payment")
 public class PaymentController {
 
   private final PaymentService paymentService;
+  private final PaymentSlipStorageService storageService;
   private final StudentPaymentRepository studentPayRepo;
   private final TeacherPaymentRepository teacherPayRepo;
-  private final StudentRepository studentRepo;
-  private final TeacherRepository teacherRepo;
 
   public PaymentController(
       PaymentService paymentService,
+      PaymentSlipStorageService storageService,
       StudentPaymentRepository studentPayRepo,
-      TeacherPaymentRepository teacherPayRepo,
-      StudentRepository studentRepo,
-      TeacherRepository teacherRepo
+      TeacherPaymentRepository teacherPayRepo
   ) {
     this.paymentService = paymentService;
+    this.storageService = storageService;
     this.studentPayRepo = studentPayRepo;
     this.teacherPayRepo = teacherPayRepo;
-    this.studentRepo = studentRepo;
-    this.teacherRepo = teacherRepo;
   }
 
   private AuthUser user(Authentication auth) {
-    return (AuthUser) auth.getPrincipal();
+    if (auth == null || !(auth.getPrincipal() instanceof AuthUser authUser)) {
+      throw new ResponseStatusException(
+          HttpStatus.UNAUTHORIZED,
+          "Authentication required"
+      );
+    }
+
+    return authUser;
   }
 
-  private void requireRole(Authentication auth, UserRole role) {
-    if (user(auth).role() != role) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+  private void requireRole(Authentication auth, UserRole requiredRole) {
+    if (user(auth).role() != requiredRole) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN,
+          "Forbidden"
+      );
     }
   }
 
-  /* =========================
-     Upload
-     ========================= */
+  /* ==================================================
+     UPLOAD
+     Actual Supabase upload happens in PaymentService.
+     ================================================== */
 
-  @PostMapping(value = "/student/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public Map<String, Object> uploadStudent(Authentication auth, @RequestPart("file") MultipartFile file) {
+  @PostMapping(
+      value = "/student/upload",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+  )
+  public Map<String, Object> uploadStudent(
+      Authentication auth,
+      @RequestPart("file") MultipartFile file
+  ) {
     requireRole(auth, UserRole.STUDENT);
-    var saved = paymentService.uploadStudentSlip(user(auth).userId(), file);
 
-    Map<String, Object> m = new LinkedHashMap<>();
-    m.put("message", "Uploaded");
-    m.put("paymentId", saved.getId());
-    return m;
+    AuthUser currentUser = user(auth);
+
+    StudentPayment saved = paymentService.uploadStudentSlip(
+        currentUser.userId(),
+        file
+    );
+
+    Map<String, Object> response = new LinkedHashMap<>();
+    response.put("message", "Uploaded");
+    response.put("paymentId", saved.getId());
+
+    return response;
   }
 
-  @PostMapping(value = "/teacher/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public Map<String, Object> uploadTeacher(Authentication auth, @RequestPart("file") MultipartFile file) {
+  @PostMapping(
+      value = "/teacher/upload",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+  )
+  public Map<String, Object> uploadTeacher(
+      Authentication auth,
+      @RequestPart("file") MultipartFile file
+  ) {
     requireRole(auth, UserRole.TEACHER);
-    var saved = paymentService.uploadTeacherSlip(user(auth).userId(), file);
 
-    Map<String, Object> m = new LinkedHashMap<>();
-    m.put("message", "Uploaded");
-    m.put("paymentId", saved.getId());
-    return m;
+    AuthUser currentUser = user(auth);
+
+    TeacherPayment saved = paymentService.uploadTeacherSlip(
+        currentUser.userId(),
+        file
+    );
+
+    Map<String, Object> response = new LinkedHashMap<>();
+    response.put("message", "Uploaded");
+    response.put("paymentId", saved.getId());
+
+    return response;
   }
 
-  /* =========================
-     History (FIXED: null-safe maps)
-     ========================= */
+  /* ==================================================
+     PAYMENT HISTORY
+     ================================================== */
 
-  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+  @Transactional(readOnly = true)
   @GetMapping("/student/history")
-  public List<Map<String, Object>> studentHistory(Authentication auth) {
+  public List<Map<String, Object>> studentHistory(
+      Authentication auth
+  ) {
     requireRole(auth, UserRole.STUDENT);
 
     Long studentId = user(auth).userId();
@@ -94,22 +134,48 @@ public class PaymentController {
     return studentPayRepo
         .findByStudent_StudentIdOrderByCreatedAtDesc(studentId)
         .stream()
-        .map(p -> {
-          Map<String, Object> m = new LinkedHashMap<>();
-          m.put("paymentId", p.getId()); // better name
-          m.put("id", p.getId());        // keep backward compat if frontend expects "id"
-          m.put("status", p.getStatus() == null ? null : p.getStatus().name());
-          m.put("createdAt", p.getCreatedAt() == null ? null : p.getCreatedAt().toString());
-          m.put("verifiedBy", p.getVerifiedBy()); // may be null -> OK now
-          m.put("verifiedAt", p.getVerifiedAt() == null ? null : p.getVerifiedAt().toString());
-          return m;
+        .map(payment -> {
+          Map<String, Object> response = new LinkedHashMap<>();
+
+          response.put("paymentId", payment.getId());
+          response.put("id", payment.getId());
+
+          response.put(
+              "status",
+              payment.getStatus() == null
+                  ? null
+                  : payment.getStatus().name()
+          );
+
+          response.put(
+              "createdAt",
+              payment.getCreatedAt() == null
+                  ? null
+                  : payment.getCreatedAt().toString()
+          );
+
+          response.put(
+              "verifiedBy",
+              payment.getVerifiedBy()
+          );
+
+          response.put(
+              "verifiedAt",
+              payment.getVerifiedAt() == null
+                  ? null
+                  : payment.getVerifiedAt().toString()
+          );
+
+          return response;
         })
         .toList();
   }
 
-  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+  @Transactional(readOnly = true)
   @GetMapping("/teacher/history")
-  public List<Map<String, Object>> teacherHistory(Authentication auth) {
+  public List<Map<String, Object>> teacherHistory(
+      Authentication auth
+  ) {
     requireRole(auth, UserRole.TEACHER);
 
     Long teacherId = user(auth).userId();
@@ -117,95 +183,184 @@ public class PaymentController {
     return teacherPayRepo
         .findByTeacher_TeacherIdOrderByCreatedAtDesc(teacherId)
         .stream()
-        .map(p -> {
-          Map<String, Object> m = new LinkedHashMap<>();
-          m.put("paymentId", p.getId());
-          m.put("id", p.getId());
-          m.put("status", p.getStatus() == null ? null : p.getStatus().name());
-          m.put("createdAt", p.getCreatedAt() == null ? null : p.getCreatedAt().toString());
-          m.put("verifiedBy", p.getVerifiedBy());
-          m.put("verifiedAt", p.getVerifiedAt() == null ? null : p.getVerifiedAt().toString());
-          return m;
+        .map(payment -> {
+          Map<String, Object> response = new LinkedHashMap<>();
+
+          response.put("paymentId", payment.getId());
+          response.put("id", payment.getId());
+
+          response.put(
+              "status",
+              payment.getStatus() == null
+                  ? null
+                  : payment.getStatus().name()
+          );
+
+          response.put(
+              "createdAt",
+              payment.getCreatedAt() == null
+                  ? null
+                  : payment.getCreatedAt().toString()
+          );
+
+          response.put(
+              "verifiedBy",
+              payment.getVerifiedBy()
+          );
+
+          response.put(
+              "verifiedAt",
+              payment.getVerifiedAt() == null
+                  ? null
+                  : payment.getVerifiedAt().toString()
+          );
+
+          return response;
         })
         .toList();
   }
 
-  /* =========================
-     Evidence (Admin can view; Student/Teacher can view own)
-     ========================= */
+  /* ==================================================
+     EVIDENCE URL
+     Admin can view any payment.
+     Student/Teacher can view only their own payment.
 
-  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+     Response:
+     {
+       "url": "temporary-supabase-url",
+       "expiresInSeconds": 300
+     }
+     ================================================== */
+
+  @Transactional(readOnly = true)
   @GetMapping("/student/{paymentId}/evidence")
-  public ResponseEntity<Resource> studentEvidence(Authentication auth, @PathVariable Long paymentId) {
-    AuthUser u = user(auth);
+  public ResponseEntity<Map<String, Object>> studentEvidence(
+      Authentication auth,
+      @PathVariable Long paymentId
+  ) {
+    AuthUser currentUser = user(auth);
 
-    StudentPayment p = studentPayRepo.findById(paymentId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+    StudentPayment payment = studentPayRepo
+        .findById(paymentId)
+        .orElseThrow(() ->
+            new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Payment not found"
+            )
+        );
 
-    boolean allowed =
-        (u.role() == UserRole.ADMIN) ||
-        (u.role() == UserRole.STUDENT && p.getStudent() != null && p.getStudent().getStudentId().equals(u.userId()));
+    boolean isAdmin =
+        currentUser.role() == UserRole.ADMIN;
 
-    if (!allowed) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+    boolean isOwner =
+        currentUser.role() == UserRole.STUDENT
+            && payment.getStudent() != null
+            && Objects.equals(
+                payment.getStudent().getStudentId(),
+                currentUser.userId()
+            );
 
-    if (p.getProofPath() == null || p.getProofPath().isBlank()) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Evidence file not found");
+    if (!isAdmin && !isOwner) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN,
+          "Forbidden"
+      );
     }
 
-    Path file = paymentService.resolveStoredPath(p.getProofPath());
-    if (!Files.exists(file)) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Evidence file not found");
-    }
-
-    Resource res = new FileSystemResource(file);
-
-    return ResponseEntity.ok()
-        .contentType(guessContentType(file))
-        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFileName() + "\"")
-        .body(res);
+    return createEvidenceResponse(payment.getProofPath());
   }
 
-  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+  @Transactional(readOnly = true)
   @GetMapping("/teacher/{paymentId}/evidence")
-  public ResponseEntity<Resource> teacherEvidence(Authentication auth, @PathVariable Long paymentId) {
-    AuthUser u = user(auth);
+  public ResponseEntity<Map<String, Object>> teacherEvidence(
+      Authentication auth,
+      @PathVariable Long paymentId
+  ) {
+    AuthUser currentUser = user(auth);
 
-    TeacherPayment p = teacherPayRepo.findById(paymentId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+    TeacherPayment payment = teacherPayRepo
+        .findById(paymentId)
+        .orElseThrow(() ->
+            new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Payment not found"
+            )
+        );
 
-    boolean allowed =
-        (u.role() == UserRole.ADMIN) ||
-        (u.role() == UserRole.TEACHER && p.getTeacher() != null && p.getTeacher().getTeacherId().equals(u.userId()));
+    boolean isAdmin =
+        currentUser.role() == UserRole.ADMIN;
 
-    if (!allowed) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+    boolean isOwner =
+        currentUser.role() == UserRole.TEACHER
+            && payment.getTeacher() != null
+            && Objects.equals(
+                payment.getTeacher().getTeacherId(),
+                currentUser.userId()
+            );
 
-    if (p.getProofPath() == null || p.getProofPath().isBlank()) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Evidence file not found");
+    if (!isAdmin && !isOwner) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN,
+          "Forbidden"
+      );
     }
 
-    Path file = paymentService.resolveStoredPath(p.getProofPath());
-    if (!Files.exists(file)) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Evidence file not found");
-    }
-
-    Resource res = new FileSystemResource(file);
-
-    return ResponseEntity.ok()
-        .contentType(guessContentType(file))
-        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFileName() + "\"")
-        .body(res);
+    return createEvidenceResponse(payment.getProofPath());
   }
 
-  private MediaType guessContentType(Path file) {
+  private ResponseEntity<Map<String, Object>> createEvidenceResponse(
+      String objectKey
+  ) {
+    if (objectKey == null || objectKey.isBlank()) {
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND,
+          "Evidence file not found"
+      );
+    }
+
+    /*
+     * The database now contains a Supabase object key,
+     * for example:
+     *
+     * payments/student/14/UUID.pdf
+     */
+    if (
+        objectKey.startsWith("./uploads")
+            || objectKey.startsWith("uploads/")
+            || objectKey.contains(":\\")
+    ) {
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND,
+          "This payment references an old local evidence file"
+      );
+    }
+
     try {
-      String ct = Files.probeContentType(file);
-      if (ct != null) return MediaType.parseMediaType(ct);
-    } catch (Exception ignored) {}
-    // fallback
-    String p = file.toString().toLowerCase();
-    if (p.endsWith(".pdf")) return MediaType.APPLICATION_PDF;
-    if (p.endsWith(".png")) return MediaType.IMAGE_PNG;
-    if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return MediaType.IMAGE_JPEG;
-    return MediaType.APPLICATION_OCTET_STREAM;
+      String signedUrl =
+          storageService.createTemporaryViewUrl(objectKey);
+
+      Map<String, Object> response = new LinkedHashMap<>();
+      response.put("url", signedUrl);
+      response.put("expiresInSeconds", 300);
+
+      return ResponseEntity
+          .ok()
+          .cacheControl(CacheControl.noStore())
+          .body(response);
+
+    } catch (IllegalArgumentException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND,
+          exception.getMessage(),
+          exception
+      );
+
+    } catch (RuntimeException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_GATEWAY,
+          "Could not access payment evidence",
+          exception
+      );
+    }
   }
 }
