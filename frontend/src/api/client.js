@@ -1,4 +1,3 @@
-```javascript
 // API Base URL
 // Local development:
 //   Uses Vite proxy with relative URLs.
@@ -264,4 +263,3 @@ export const api = {
       ),
   },
 };
-```
