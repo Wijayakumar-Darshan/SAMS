@@ -1,11 +1,11 @@
-// API Base URL
+
+console.log("VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
+
 // Local development:
 //   Uses Vite proxy with relative URLs.
 //
 // Production (Vercel):
 //   Uses the Render backend directly.
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 const storage = {
   getAccess() {
@@ -42,7 +42,7 @@ function buildUrl(url) {
     return url;
   }
 
-  return `${API_BASE_URL}${url}`;
+  return `${import.meta.env.VITE_API_BASE_URL || ""}${url}`;
 }
 
 
