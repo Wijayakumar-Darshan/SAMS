@@ -40,7 +40,7 @@ public class SecurityConfig {
 
   @Bean
   public CorsConfigurationSource corsConfigurationSource(
-      @Value("${app.frontend.urls}") String frontendUrls
+      @Value("${app.frontend.urls:http://localhost:5173}") String frontendUrls
   ) {
     List<String> allowedOrigins = Arrays.stream(
             frontendUrls.split(",")
