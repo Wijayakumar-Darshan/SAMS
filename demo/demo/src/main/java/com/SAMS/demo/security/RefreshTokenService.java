@@ -1,8 +1,8 @@
 package com.SAMS.demo.security;
 
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.SAMS.demo.entity.RefreshToken;
 import com.SAMS.demo.entity.UserType;
@@ -28,6 +28,7 @@ public class RefreshTokenService {
     this.refreshDays = refreshDays;
   }
 
+  @Transactional
   public RefreshToken create(UserType userType, Long userId) {
     repo.deleteByExpiresAtBefore(Instant.now());
 
@@ -39,6 +40,7 @@ public class RefreshTokenService {
     return repo.save(rt);
   }
 
+  @Transactional
   public RefreshToken validateAndGet(String token) {
     RefreshToken rt = repo.findByToken(token)
         .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
@@ -50,6 +52,7 @@ public class RefreshTokenService {
     return rt;
   }
 
+  @Transactional
   public void revoke(String token) {
     repo.findByToken(token).ifPresent(repo::delete);
   }
